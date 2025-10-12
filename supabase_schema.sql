@@ -13,12 +13,19 @@ CREATE TABLE IF NOT EXISTS uploads (
     upload_date TEXT NOT NULL,
     orig_filename TEXT NOT NULL,
     stored_path TEXT NOT NULL,
+    file_content BYTEA, -- เก็บเนื้อหาไฟล์จริง
+    file_size BIGINT, -- ขนาดไฟล์ใน bytes
+    file_type TEXT, -- ประเภทไฟล์ (zip, xlsx, txt, etc.)
+    mime_type TEXT, -- MIME type (application/zip, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, etc.)
+    checksum TEXT, -- MD5 checksum สำหรับตรวจสอบความสมบูรณ์
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Index for faster queries
 CREATE INDEX IF NOT EXISTS idx_uploads_date ON uploads(upload_date);
 CREATE INDEX IF NOT EXISTS idx_uploads_created_at ON uploads(created_at);
+CREATE INDEX IF NOT EXISTS idx_uploads_file_type ON uploads(file_type);
+CREATE INDEX IF NOT EXISTS idx_uploads_file_size ON uploads(file_size);
 
 -- ============================================
 -- ROW LEVEL SECURITY POLICIES

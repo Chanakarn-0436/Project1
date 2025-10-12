@@ -40,25 +40,65 @@ supabase = get_supabase()
 
 
 # ====== FILE FUNCTIONS ======
-def save_file(upload_date: str, file):
-    """บันทึกไฟล์และเก็บข้อมูลใน Supabase"""
+def save_file(upload_date: str, file, store_in_db: bool = True):
+    """บันทึกไฟล์และเก็บข้อมูลใน Supabase
+    
+    Args:
+        upload_date: วันที่อัปโหลด
+        file: ไฟล์ที่อัปโหลด
+        store_in_db: เก็บไฟล์จริงใน database หรือไม่ (default: True)
+    """
     file_id = str(uuid.uuid4())
     stored_name = f"{file_id}_{file.name}"
     stored_path = os.path.join(UPLOAD_DIR, upload_date, stored_name)
     os.makedirs(os.path.dirname(stored_path), exist_ok=True)
 
-    # บันทึกไฟล์ลงดิสก์
-    with open(stored_path, "wb") as f:
-        f.write(file.getbuffer())
-
-    # บันทึกข้อมูลลง Supabase
-    supabase.save_upload_record(upload_date, file.name, stored_path)
+    # อ่านเนื้อหาไฟล์
+    file_content = file.getbuffer()
+    
+    if store_in_db:
+        # บันทึกข้อมูลลง Supabase (พร้อมเนื้อหาไฟล์)
+        supabase.save_upload_record(upload_date, file.name, stored_path, file_content)
+    else:
+        # บันทึกไฟล์ลงดิสก์และ metadata ใน Supabase
+        with open(stored_path, "wb") as f:
+            f.write(file_content)
+        supabase.save_upload_record(upload_date, file.name, stored_path)
 
 def list_files_by_date(upload_date: str):
     """ดึงรายการไฟล์ตามวันที่จาก Supabase"""
     files = supabase.get_files_by_date(upload_date)
     # แปลงเป็น format เดียวกับเดิม: [(id, orig_filename, stored_path), ...]
     return [(f["id"], f["orig_filename"], f["stored_path"]) for f in files]
+
+def get_file_for_analysis(file_id: int):
+    """ดึงไฟล์สำหรับวิเคราะห์ (จาก database หรือดิสก์)"""
+    if not supabase.is_connected():
+        return None
+    
+    try:
+        # ดึงข้อมูลไฟล์
+        result = supabase.supabase.table("uploads").select("*").eq("id", file_id).execute()
+        if not result.data:
+            return None
+        
+        file_record = result.data[0]
+        
+        # ถ้ามี file_content ใน database ให้ใช้จาก database
+        if file_record.get("file_content"):
+            return io.BytesIO(file_record["file_content"])
+        
+        # ถ้าไม่มี file_content ให้อ่านจากดิสก์
+        stored_path = file_record["stored_path"]
+        if os.path.exists(stored_path):
+            with open(stored_path, "rb") as f:
+                return io.BytesIO(f.read())
+        
+        return None
+        
+    except Exception as e:
+        st.error(f"❌ Failed to get file for analysis: {e}")
+        return None
 
 def delete_file(file_id: int):
     """ลบไฟล์ทั้งจากดิสก์และ Supabase"""
@@ -329,11 +369,24 @@ if menu == "Home":
                     analysis_progress.progress(progress)
                     
                     try:
-                        lname = fpath.lower()
+                        # ดึงไฟล์จาก database หรือดิสก์
+                        file_bytes = get_file_for_analysis(fid)
+                        
+                        if file_bytes is None:
+                            st.warning(f"⚠️ File not found: {fname}")
+                            st.info("💡 The file may have been deleted from disk and database.")
+                            
+                            # ลบข้อมูลจาก Supabase ถ้าไฟล์ไม่มีอยู่จริง
+                            if st.button(f"🗑️ Remove from database", key=f"remove_missing_{fid}"):
+                                delete_file(fid)
+                                st.success(f"✅ Removed {fname} from database")
+                                st.rerun()
+                            continue
+                        
+                        lname = fname.lower()  # ใช้ชื่อไฟล์แทน path
                         if lname.endswith(".zip"):
-                            with open(fpath, "rb") as f:
-                                zip_bytes = io.BytesIO(f.read())
-                                res = find_in_zip(zip_bytes)
+                            zip_bytes = file_bytes
+                            res = find_in_zip(zip_bytes)
                             # record results from zip
                             for kind, pack in res.items():
                                 if not pack:
@@ -352,8 +405,7 @@ if menu == "Home":
                             kind = _kind(lname)
                             if not ext or not kind:
                                 raise ValueError("Unsupported file type or cannot infer kind")
-                            with open(fpath, "rb") as f:
-                                data = LOADERS[ext](f)
+                            data = LOADERS[ext](file_bytes)
                             if kind == "wason":
                                 st.session_state["wason_log"] = data
                                 st.session_state["wason_file"] = fname

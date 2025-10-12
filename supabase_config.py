@@ -3,6 +3,8 @@ import streamlit as st
 from supabase import create_client, Client
 from typing import Optional
 from datetime import datetime
+import hashlib
+import mimetypes
 
 class SupabaseManager:
     """จัดการการเชื่อมต่อและใช้งาน Supabase Database"""
@@ -35,16 +37,27 @@ class SupabaseManager:
         return self.supabase is not None
     
     # ===== FILE MANAGEMENT =====
-    def save_upload_record(self, upload_date: str, orig_filename: str, stored_path: str) -> Optional[int]:
-        """บันทึกข้อมูลการอัปโหลดไฟล์"""
+    def save_upload_record(self, upload_date: str, orig_filename: str, stored_path: str, file_content: bytes = None) -> Optional[int]:
+        """บันทึกข้อมูลการอัปโหลดไฟล์ (พร้อมเนื้อหาไฟล์ถ้ามี)"""
         if not self.is_connected():
             return None
         
         try:
+            # คำนวณข้อมูลไฟล์
+            file_size = len(file_content) if file_content else 0
+            file_extension = os.path.splitext(orig_filename)[1].lower()
+            mime_type = mimetypes.guess_type(orig_filename)[0] or "application/octet-stream"
+            checksum = hashlib.md5(file_content).hexdigest() if file_content else None
+            
             data = {
                 "upload_date": upload_date,
                 "orig_filename": orig_filename,
                 "stored_path": stored_path,
+                "file_content": file_content,
+                "file_size": file_size,
+                "file_type": file_extension,
+                "mime_type": mime_type,
+                "checksum": checksum,
                 "created_at": datetime.now().isoformat()
             }
             
@@ -55,6 +68,30 @@ class SupabaseManager:
             
         except Exception as e:
             st.error(f"❌ Failed to save upload record: {e}")
+            return None
+    
+    def get_file_content(self, file_id: int) -> Optional[bytes]:
+        """ดึงเนื้อหาไฟล์จาก database"""
+        if not self.is_connected():
+            return None
+        
+        try:
+            result = self.supabase.table("uploads").select("file_content, orig_filename, checksum").eq("id", file_id).execute()
+            if result.data:
+                file_record = result.data[0]
+                file_content = file_record["file_content"]
+                
+                # ตรวจสอบ checksum ถ้ามี
+                if file_content and file_record.get("checksum"):
+                    calculated_checksum = hashlib.md5(file_content).hexdigest()
+                    if calculated_checksum != file_record["checksum"]:
+                        st.warning(f"⚠️ File integrity check failed for {file_record['orig_filename']}")
+                
+                return file_content
+            return None
+            
+        except Exception as e:
+            st.error(f"❌ Failed to get file content: {e}")
             return None
     
     def get_files_by_date(self, upload_date: str) -> list:
