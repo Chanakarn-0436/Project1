@@ -40,30 +40,41 @@ supabase = get_supabase()
 
 
 # ====== FILE FUNCTIONS ======
-def save_file(upload_date: str, file, store_in_db: bool = True):
-    """บันทึกไฟล์และเก็บข้อมูลใน Supabase
+def save_file(upload_date: str, file, use_storage: bool = True):
+    """บันทึกไฟล์ลง Supabase Storage (หรือดิสก์) และ metadata ใน Database
     
     Args:
         upload_date: วันที่อัปโหลด
         file: ไฟล์ที่อัปโหลด
-        store_in_db: เก็บไฟล์จริงใน database หรือไม่ (default: True)
+        use_storage: ใช้ Supabase Storage (True) หรือเก็บบนดิสก์ (False)
     """
     file_id = str(uuid.uuid4())
     stored_name = f"{file_id}_{file.name}"
-    stored_path = os.path.join(UPLOAD_DIR, upload_date, stored_name)
-    os.makedirs(os.path.dirname(stored_path), exist_ok=True)
-
-    # อ่านเนื้อหาไฟล์
-    file_content = file.getbuffer()
+    file_content = bytes(file.getbuffer())
     
-    if store_in_db:
-        # บันทึกข้อมูลลง Supabase (พร้อมเนื้อหาไฟล์)
-        supabase.save_upload_record(upload_date, file.name, stored_path, file_content)
-    else:
-        # บันทึกไฟล์ลงดิสก์และ metadata ใน Supabase
+    storage_url = None
+    stored_path = None
+    
+    if use_storage and supabase.is_connected():
+        # อัปโหลดไป Supabase Storage
+        storage_path = f"{upload_date}/{stored_name}"
+        storage_url = supabase.upload_to_storage(file_content, storage_path)
+        
+        if storage_url:
+            stored_path = storage_path  # เก็บ path ใน storage
+        else:
+            # ถ้า upload ไม่สำเร็จ fallback ไปดิสก์
+            use_storage = False
+    
+    if not use_storage or not storage_url:
+        # เก็บบนดิสก์
+        stored_path = os.path.join(UPLOAD_DIR, upload_date, stored_name)
+        os.makedirs(os.path.dirname(stored_path), exist_ok=True)
         with open(stored_path, "wb") as f:
             f.write(file_content)
-        supabase.save_upload_record(upload_date, file.name, stored_path)
+    
+    # บันทึก metadata ลง Supabase Database
+    supabase.save_upload_record(upload_date, file.name, stored_path, storage_url)
 
 def list_files_by_date(upload_date: str):
     """ดึงรายการไฟล์ตามวันที่จาก Supabase"""
@@ -72,7 +83,7 @@ def list_files_by_date(upload_date: str):
     return [(f["id"], f["orig_filename"], f["stored_path"]) for f in files]
 
 def get_file_for_analysis(file_id: int):
-    """ดึงไฟล์สำหรับวิเคราะห์ (จาก database หรือดิสก์)"""
+    """ดึงไฟล์สำหรับวิเคราะห์ (จาก Storage, Database, หรือดิสก์)"""
     if not supabase.is_connected():
         return None
     
@@ -83,16 +94,27 @@ def get_file_for_analysis(file_id: int):
             return None
         
         file_record = result.data[0]
-        
-        # ถ้ามี file_content ใน database ให้ใช้จาก database
-        if file_record.get("file_content"):
-            return io.BytesIO(file_record["file_content"])
-        
-        # ถ้าไม่มี file_content ให้อ่านจากดิสก์
         stored_path = file_record["stored_path"]
+        storage_url = file_record.get("storage_url")
+        
+        # ลำดับความสำคัญ: Storage > Disk > Database (legacy)
+        
+        # 1. ลองดาวน์โหลดจาก Supabase Storage
+        if storage_url:
+            file_content = supabase.download_from_storage(stored_path)
+            if file_content:
+                return io.BytesIO(file_content)
+        
+        # 2. ลองอ่านจากดิสก์ (local)
         if os.path.exists(stored_path):
             with open(stored_path, "rb") as f:
                 return io.BytesIO(f.read())
+        
+        # 3. ลองดึงจาก database (legacy - สำหรับไฟล์เก่า)
+        if file_record.get("file_content"):
+            import base64
+            file_content = base64.b64decode(file_record["file_content"])
+            return io.BytesIO(file_content)
         
         return None
         
@@ -226,12 +248,31 @@ if menu == "Home":
     st.markdown("#### Upload & Manage Files (ZIP, Excel, TXT) with Calendar")
 
     chosen_date = st.date_input("Select date", value=date.today())
-    files = st.file_uploader(
-        "Upload files (ZIP / Excel / TXT)",
-        type=["zip", "xlsx", "xls", "xlsm", "txt"],
-        accept_multiple_files=True,
-        key=f"uploader_{chosen_date}"
-    )
+    
+    # การตั้งค่าการเก็บไฟล์
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        files = st.file_uploader(
+            "Upload files (ZIP / Excel / TXT)",
+            type=["zip", "xlsx", "xls", "xlsm", "txt"],
+            accept_multiple_files=True,
+            key=f"uploader_{chosen_date}"
+        )
+    with col2:
+        use_storage = st.checkbox(
+            "☁️ Use Cloud Storage", 
+            value=True,
+            help="Store files in Supabase Storage (accessible from anywhere)"
+        )
+        
+        # แสดงข้อมูลไฟล์
+        if files:
+            total_size = sum(len(f.getbuffer()) for f in files)
+            total_size_mb = total_size / (1024 * 1024)
+            if use_storage:
+                st.caption(f"📊 {len(files)} files ({total_size_mb:.1f}MB) → ☁️ Cloud")
+            else:
+                st.caption(f"📊 {len(files)} files ({total_size_mb:.1f}MB) → 💾 Local")
     if files:
         if st.button("Upload", key=f"upload_btn_{chosen_date}"):
             # สร้าง Progress bar
@@ -251,7 +292,7 @@ if menu == "Home":
                 
                 # อัปโหลดไฟล์
                 try:
-                    save_file(str(chosen_date), file)
+                    save_file(str(chosen_date), file, use_storage=use_storage)
                     uploaded_count += 1
                 except Exception as e:
                     st.error(f"❌ Failed to upload {file.name}: {e}")

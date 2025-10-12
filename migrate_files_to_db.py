@@ -59,9 +59,10 @@ def migrate_files_to_database():
                 import hashlib
                 checksum = hashlib.md5(file_content).hexdigest()
                 
-                # อัพเดต record ใน database
+                # อัพเดต record ใน database (แปลงเป็น base64)
+                import base64
                 update_data = {
-                    "file_content": file_content,
+                    "file_content": base64.b64encode(file_content).decode('utf-8'),
                     "file_size": file_size,
                     "file_type": file_extension,
                     "mime_type": mime_type,

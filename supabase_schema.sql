@@ -13,10 +13,10 @@ CREATE TABLE IF NOT EXISTS uploads (
     upload_date TEXT NOT NULL,
     orig_filename TEXT NOT NULL,
     stored_path TEXT NOT NULL,
-    file_content BYTEA, -- เก็บเนื้อหาไฟล์จริง
+    storage_url TEXT, -- URL ในSupabase Storage (ถ้ามี)
     file_size BIGINT, -- ขนาดไฟล์ใน bytes
     file_type TEXT, -- ประเภทไฟล์ (zip, xlsx, txt, etc.)
-    mime_type TEXT, -- MIME type (application/zip, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, etc.)
+    mime_type TEXT, -- MIME type
     checksum TEXT, -- MD5 checksum สำหรับตรวจสอบความสมบูรณ์
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
