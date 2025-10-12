@@ -1,0 +1,1713 @@
+     +--------------------------------------------------------------------+
+     ¦                        • MobaXterm 11.1 •                          ¦
+     ¦            (SSH client, X-server and networking tools)             ¦
+     ¦                                                                    ¦
+     ¦ ? SSH session to root@10.10.19.194                                 ¦
+     ¦   • SSH compression : ?                                            ¦
+     ¦   • SSH-browser     : ?                                            ¦
+     ¦   • X11-forwarding  : ?  (disabled or not supported by server)     ¦
+     ¦   • DISPLAY         : 10.235.1.205:5.0                             ¦
+     ¦                                                                    ¦
+     ¦ ? For more info, ctrl+click on help or visit our website           ¦
+     +--------------------------------------------------------------------+
+
+Last login: Wed Oct  1 16:41:26 2025 from 10.207.132.45
+[root@PTBBWDMNMSZTE01:~]$ ssh who@20.100.10.1
+who@20.100.10.1's password:
+        *********************************************************************
+                 Welcome to Access WDM/OTN System
+        *********************************************************************
+Login at 14:10:54 10-07-2025 from 20.100.10.2 through SSH.
+The last successful login was performed at 11:24:43 10-01-2025 from 20.100.10.2 through SSH. Afterwards, 0 authentication failure occurred.
+ZXPOTN#ssh 20.10.90.1 dcn
+Open
+Username:who
+Password:
+        *********************************************************************
+                 Welcome to Access WDM/OTN System
+        *********************************************************************
+Login at 14:11:11 10-07-2025 from 30.200.1.5 through SSH.
+The last successful login was performed at 15:41:45 09-30-2025 from 30.200.1.5 through SSH. Afterwards, 0 authentication failure occurred.
+ZXPOTN#en
+Password:
+ZXPOTN#show le
+======================================================================
+======================================================================
+LE         : the name of logic entity
+Location   : the location of logic entity in the system
+Status     : the status of logic entity(master or slave)
+Sync-state : the state of synchronization
+======================================================================
+======================================================================
+
+LE             Location            Status         Sync-state
+======================================================================
+T_RP_ROUTER    MPU-33/65/0         Master         Synchronized
+----------------------------------------------------------------------
+T_SC           MPU-33/65/0         Master         Synchronized
+----------------------------------------------------------------------
+T_RP_ROUTER    MPU-33/74/0         Slave          Synchronized
+----------------------------------------------------------------------
+T_SC           MPU-33/74/0         Slave          Synchronized
+----------------------------------------------------------------------
+ZXPOTN#show dcnbase
+
+=========================================================
+D - default. C - custom. A - Auto Calc.
+dcn status:  enable
+DevSeriNo(hex):D8631B   NEID(hex): 0.C.63.1B[A]
+DeviceType:ZXONE9700(561)
+baseMac(hex): 0026.edd8.631b
+=========================================================
+qxip                qxipmask            qxmac
+--                  --                  0000.0000.0000[C]
+---------------------------------------------------------
+qxospfenable        qxflood             qxospfarea
+--                  --                  --
+---------------------------------------------------------
+mngip               mngipsubfix         ospfarea
+20.10.90.1          255.255.255.255     0.0.0.0[D]
+---------------------------------------------------------
+ZXPOTN#diag
+Enter diagnose mode. Return with Ctrl+Z.
+Warning: The diagnosis involves the internal implementation of the vendor product. Perform it under the guidance of the vendor.
+ZXPOTN(diag)#diag shell MPU-33/65/0
+ZXPOTN(diag-shell-MPU-33/65/0)#exe shell wason
+shell wason
+Now switch to WASON shell ...
+[WASON]#
+ZXPOTN(diag-shell-MPU-33/65/0)#exe diag_c("cc-cmd pcheck all")
+diag_c("cc-cmd pcheck all")
+[WASON]System Time: 2025-10-07 14:11:31
+[WASON]--------------------------------------------------------------------------------------------------------------
+[WASON]
+[WASON][CALL 1] [30.10.90.6 30.10.10.6 2] COPPER
+[WASON]  [Conn 1][30.10.90.6 30.10.10.6 2 1492]    WR NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]  [Conn 2][30.10.90.6 30.10.10.6 2 1]       W  NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]ServiceState: 1(IN_SERVICE)                    RestoreState: 1(ENABLE)
+[WASON]CallStatus: 8(RETURN_WAITING)                  OperResult: 42(AUTO_RETURN_STOP)
+[WASON]A site flow: 1(WR)                             Z site flow: 1(WR)
+[WASON]
+[WASON][PreRout]:
+[WASON]--1--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--1
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-07 09:29:07                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E327306  PortID1:0x9C0201    PortID2:0x0         InfoPos:0x8C000241
+[WASON]--2--WORK--(USED)--(SUCCESS)--(EverRstrFail_FALSE)--2
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-07 11:10:36                 Result:1(SUCCESS)
+[WASON]--3--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--3
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-30 11:19:45                 Result:1(SUCCESS)
+[WASON]
+[WASON][CALL 2] [30.10.90.6 30.10.10.6 3] COPPER
+[WASON]  [Conn 1][30.10.90.6 30.10.10.6 3 1817]    WR NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]  [Conn 2][30.10.90.6 30.10.10.6 3 1]       W  SF        PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]ServiceState: 1(IN_SERVICE)                    RestoreState: 1(ENABLE)
+[WASON]CallStatus: 11(NORMAL)                         OperResult: 6(RESTORE_SUCC)
+[WASON]A site flow: 1(WR)                             Z site flow: 1(WR)
+[WASON]
+[WASON][PreRout]:
+[WASON]--1--WORK--(USED)--(SUCCESS)--(EverRstrFail_FALSE)--1
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-07 11:10:36                 Result:1(SUCCESS)
+[WASON]--2--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--2
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-06 17:39:45                 Result:1(SUCCESS)
+[WASON]--3--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--3
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-02 11:45:07                 Result:1(SUCCESS)
+[WASON]
+[WASON][CALL 3] [30.10.90.6 30.10.10.6 8] COPPER
+[WASON]  [Conn 1][30.10.90.6 30.10.10.6 8 2250]    WR NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]  [Conn 2][30.10.90.6 30.10.10.6 8 494]     W  NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]ServiceState: 1(IN_SERVICE)                    RestoreState: 1(ENABLE)
+[WASON]CallStatus: 8(RETURN_WAITING)                  OperResult: 42(AUTO_RETURN_STOP)
+[WASON]A site flow: 1(WR)                             Z site flow: 1(WR)
+[WASON]
+[WASON][PreRout]:
+[WASON]--1--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--1
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-01 15:14:08                 Result:1(SUCCESS)
+[WASON]--2--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--2
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-04 10:17:39                 Result:1(SUCCESS)
+[WASON]--3--WORK--(USED)--(SUCCESS)--(EverRstrFail_FALSE)--3
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-07 09:29:18                 Result:1(SUCCESS)
+[WASON]--4--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--4
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-01 15:24:13                 Result:1(SUCCESS)
+[WASON]--5--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--5
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-08-12 21:41:18                 Result:1(SUCCESS)
+[WASON]--6--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--6
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-23 11:05:20                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E327306  PortID1:0x9C0201    PortID2:0x0         InfoPos:0x8C000241
+[WASON]--7--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--7
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-07-20 19:23:30                 Result:1(SUCCESS)
+[WASON]
+[WASON][CALL 4] [30.10.90.6 30.10.10.6 10] COPPER
+[WASON]  [Conn 1][30.10.90.6 30.10.10.6 10 1964]   WR NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]  [Conn 2][30.10.90.6 30.10.10.6 10 1]      W  SF        PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]ServiceState: 1(IN_SERVICE)                    RestoreState: 1(ENABLE)
+[WASON]CallStatus: 11(NORMAL)                         OperResult: 6(RESTORE_SUCC)
+[WASON]A site flow: 1(WR)                             Z site flow: 1(WR)
+[WASON]
+[WASON][PreRout]:
+[WASON]--1--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--1
+[WASON]  --(Has FaultLink)
+[WASON]   --0x1E327306--0x009C0201--A0A2
+[WASON]   --0x1E1E2806--0x011C0201--A0A2
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-06 09:14:49                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E327306  PortID1:0x9C0201    PortID2:0x0         InfoPos:0x8C000241
+[WASON]--2--WORK--(USED)--(SUCCESS)--(EverRstrFail_FALSE)--2
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-07 11:08:57                 Result:1(SUCCESS)
+[WASON]--3--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--3
+[WASON]  --(Has FaultLink)
+[WASON]   --0x1E327306--0x009C0201--A0A2
+[WASON]   --0x1E1E2806--0x011C0201--A0A2
+[WASON]  --(Restore Info:)
+[WASON]    2025-08-19 17:51:47                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E327306  PortID1:0x9C0201    PortID2:0x0         InfoPos:0x8C000241
+[WASON]--4--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--4
+[WASON]  --(Has FaultLink)
+[WASON]   --0x1E327306--0x009C0201--A0A2
+[WASON]   --0x1E1E2806--0x011C0201--A0A2
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-06 14:30:18                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E327306  PortID1:0x9C0201    PortID2:0x0         InfoPos:0x8C000241
+[WASON]--5--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--5
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-30 13:42:39                 Result:1(SUCCESS)
+[WASON]--6--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--6
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-10 13:43:09                 Result:1(SUCCESS)
+[WASON]--7--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--7
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-08-21 14:48:21                 Result:1(SUCCESS)
+[WASON]--8--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--8
+[WASON]  --(NO FaultLink)
+[WASON]
+[WASON][CALL 5] [30.10.90.6 30.10.10.6 12] COPPER
+[WASON]  [Conn 1][30.10.90.6 30.10.10.6 12 2129]   WR NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]  [Conn 2][30.10.90.6 30.10.10.6 12 1]      W  NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]ServiceState: 1(IN_SERVICE)                    RestoreState: 1(ENABLE)
+[WASON]CallStatus: 8(RETURN_WAITING)                  OperResult: 42(AUTO_RETURN_STOP)
+[WASON]A site flow: 1(WR)                             Z site flow: 1(WR)
+[WASON]
+[WASON][PreRout]:
+[WASON]--1--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--1
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-27 16:28:42                 Result:10(ALARM_OCCURE_FAIL)
+[WASON]--2--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--2
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-06 14:30:07                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E327306  PortID1:0x9C0201    PortID2:0x0         InfoPos:0x8C000241
+[WASON]--3--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--3
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-12 16:18:23                 Result:1(SUCCESS)
+[WASON]--4--WORK--(USED)--(SUCCESS)--(EverRstrFail_FALSE)--4
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-07 09:28:16                 Result:1(SUCCESS)
+[WASON]--5--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--5
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-25 12:07:49                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E327306  PortID1:0x9C0201    PortID2:0x0         InfoPos:0x8C000241
+[WASON]--6--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--6
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-26 11:48:36                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E327306  PortID1:0x9C0201    PortID2:0x0         InfoPos:0x8C000241
+[WASON]
+[WASON][CALL 6] [30.10.90.6 30.10.10.6 52] COPPER
+[WASON]  [Conn 1][30.10.90.6 30.10.10.6 52 1743]   WR NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]  [Conn 2][30.10.90.6 30.10.10.6 52 178]    W  SF        PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]ServiceState: 1(IN_SERVICE)                    RestoreState: 1(ENABLE)
+[WASON]CallStatus: 11(NORMAL)                         OperResult: 6(RESTORE_SUCC)
+[WASON]A site flow: 1(WR)                             Z site flow: 1(WR)
+[WASON]
+[WASON][PreRout]:
+[WASON]--1--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--1
+[WASON]  --(Has FaultLink)
+[WASON]   --0x1E327306--0x009C0201--A0A2
+[WASON]   --0x1E1E2806--0x011C0201--A0A2
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-06 14:31:15                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E327306  PortID1:0x9C0201    PortID2:0x0         InfoPos:0x8C000241
+[WASON]--2--WORK--(USED)--(SUCCESS)--(EverRstrFail_FALSE)--2
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-07 11:10:08                 Result:1(SUCCESS)
+[WASON]--3--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--3
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-30 11:18:56                 Result:10(ALARM_OCCURE_FAIL)
+[WASON]--4--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--4
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-02 11:44:39                 Result:1(SUCCESS)
+[WASON]--5--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--5
+[WASON]  --(Has FaultLink)
+[WASON]   --0x1E327306--0x009C0201--A0A2
+[WASON]   --0x1E1E2806--0x011C0201--A0A2
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-06 09:14:49                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E327306  PortID1:0x9C0201    PortID2:0x0         InfoPos:0x8C000241
+[WASON]--6--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--6
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-05 13:56:46                 Result:1(SUCCESS)
+[WASON]--7--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--7
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-30 12:49:28                 Result:1(SUCCESS)
+[WASON]
+[WASON][CALL 7] [30.10.90.6 30.10.10.6 71] COPPER
+[WASON]  [Conn 1][30.10.90.6 30.10.10.6 71 1494]   WR NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]  [Conn 2][30.10.90.6 30.10.10.6 71 1]      W  SF        PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]ServiceState: 1(IN_SERVICE)                    RestoreState: 1(ENABLE)
+[WASON]CallStatus: 11(NORMAL)                         OperResult: 6(RESTORE_SUCC)
+[WASON]A site flow: 1(WR)                             Z site flow: 1(WR)
+[WASON]
+[WASON][PreRout]:
+[WASON]--1--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--1
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-06 17:40:18                 Result:1(SUCCESS)
+[WASON]--2--WORK--(USED)--(SUCCESS)--(EverRstrFail_FALSE)--2
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-07 11:10:38                 Result:1(SUCCESS)
+[WASON]--3--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--3
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-06 09:15:02                 Result:1(SUCCESS)
+[WASON]
+[WASON][CALL 8] [30.10.90.6 30.10.10.6 85] COPPER
+[WASON]  [Conn 1][30.10.90.6 30.10.10.6 85 1]      W  NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]ServiceState: 1(IN_SERVICE)                    RestoreState: 1(ENABLE)
+[WASON]CallStatus: 11(NORMAL)                         OperResult: 8(MAN_RETURN_SUCC)
+[WASON]A site flow: 1(W )                             Z site flow: 1(W )
+[WASON]
+[WASON][PreRout]:
+[WASON]--1--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--1
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-07 05:21:35                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E327306  PortID1:0x9C0201    PortID2:0x0         InfoPos:0x8C000241
+[WASON]--2--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--2
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-06 17:39:51                 Result:1(SUCCESS)
+[WASON]
+[WASON][CALL 9] [30.10.90.6 30.10.10.6 122] COPPER
+[WASON]  [Conn 1][30.10.90.6 30.10.10.6 122 1635]  WR NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]  [Conn 2][30.10.90.6 30.10.10.6 122 1]     W  NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]ServiceState: 1(IN_SERVICE)                    RestoreState: 1(ENABLE)
+[WASON]CallStatus: 8(RETURN_WAITING)                  OperResult: 42(AUTO_RETURN_STOP)
+[WASON]A site flow: 1(WR)                             Z site flow: 1(WR)
+[WASON]
+[WASON][PreRout]:
+[WASON]--1--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--1
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-06 14:31:45                 Result:1(SUCCESS)
+[WASON]--2--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--2
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-04 10:16:19                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E327306  PortID1:0x9C0201    PortID2:0x0         InfoPos:0x8C000241
+[WASON]--3--WORK--(USED)--(SUCCESS)--(EverRstrFail_FALSE)--3
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-07 09:28:30                 Result:1(SUCCESS)
+[WASON]
+[WASON][CALL 10] [30.10.90.6 30.10.10.6 443] COPPER
+[WASON]  [Conn 1][30.10.90.6 30.10.10.6 443 1347]  WR NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]  [Conn 2][30.10.90.6 30.10.10.6 443 105]   W  SF        PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]ServiceState: 1(IN_SERVICE)                    RestoreState: 1(ENABLE)
+[WASON]CallStatus: 11(NORMAL)                         OperResult: 6(RESTORE_SUCC)
+[WASON]A site flow: 1(WR)                             Z site flow: 1(WR)
+[WASON]
+[WASON][PreRout]:
+[WASON]--1--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--1
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-05 13:57:24                 Result:1(SUCCESS)
+[WASON]--2--WORK--(USED)--(SUCCESS)--(EverRstrFail_FALSE)--2
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-07 11:10:04                 Result:1(SUCCESS)
+[WASON]--3--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--3
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-06 09:51:49                 Result:1(SUCCESS)
+[WASON]--4--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--4
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-07-20 19:22:07                 Result:1(SUCCESS)
+[WASON]--5--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--5
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-10 14:54:46                 Result:1(SUCCESS)
+[WASON]--6--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--6
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-06-25 16:20:37                 Result:1(SUCCESS)
+[WASON]--7--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--7
+[WASON]  --(Has FaultLink)
+[WASON]   --0x1E327306--0x009C0201--A0A2
+[WASON]   --0x1E1E2806--0x011C0201--A0A2
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-06 13:46:48                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E327306  PortID1:0x9C0201    PortID2:0x0         InfoPos:0x8C000241
+[WASON]
+[WASON]***********************************THE END!************************************
+[WASON]#
+[WASON]value = 0 = 0x0(32); value = 0 = 0x0(64)
+[WASON]
+[WASON]ushell command finished
+[WASON]start time: 2025-10-07  14:11:31(19140911 s, 65 ms)
+[WASON] end  time: 19140911 s, 372 ms
+[WASON]
+ZXPOTN(diag-shell-MPU-33/65/0)#    exec diag_c("cc-cmd setcallcv SetupApo")
+diag_c("cc-cmd setcallcv SetupApo")
+[WASON]
+[WASON][CallID] [30.10.90.6 30.10.10.6 2]:
+[WASON]    Conn [30.10.90.6 30.10.10.6 2 1492] APO state 1(0-Disable, 1-Enable)
+[WASON]    Conn [30.10.90.6 30.10.10.6 2 1] APO state 1(0-Disable, 1-Enable)
+[WASON]
+[WASON][CallID] [30.10.90.6 30.10.10.6 3]:
+[WASON]    Conn [30.10.90.6 30.10.10.6 3 1817] APO state 1(0-Disable, 1-Enable)
+[WASON]    Conn [30.10.90.6 30.10.10.6 3 1] APO state 1(0-Disable, 1-Enable)
+[WASON]
+[WASON][CallID] [30.10.90.6 30.10.10.6 8]:
+[WASON]    Conn [30.10.90.6 30.10.10.6 8 2250] APO state 1(0-Disable, 1-Enable)
+[WASON]    Conn [30.10.90.6 30.10.10.6 8 494] APO state 1(0-Disable, 1-Enable)
+[WASON]
+[WASON][CallID] [30.10.90.6 30.10.10.6 10]:
+[WASON]    Conn [30.10.90.6 30.10.10.6 10 1964] APO state 1(0-Disable, 1-Enable)
+[WASON]    Conn [30.10.90.6 30.10.10.6 10 1] APO state 1(0-Disable, 1-Enable)
+[WASON]
+[WASON][CallID] [30.10.90.6 30.10.10.6 12]:
+[WASON]    Conn [30.10.90.6 30.10.10.6 12 2129] APO state 1(0-Disable, 1-Enable)
+[WASON]    Conn [30.10.90.6 30.10.10.6 12 1] APO state 1(0-Disable, 1-Enable)
+[WASON]
+[WASON][CallID] [30.10.90.6 30.10.10.6 52]:
+[WASON]    Conn [30.10.90.6 30.10.10.6 52 1743] APO state 1(0-Disable, 1-Enable)
+[WASON]    Conn [30.10.90.6 30.10.10.6 52 178] APO state 1(0-Disable, 1-Enable)
+[WASON]
+[WASON][CallID] [30.10.90.6 30.10.10.6 71]:
+[WASON]    Conn [30.10.90.6 30.10.10.6 71 1494] APO state 1(0-Disable, 1-Enable)
+[WASON]    Conn [30.10.90.6 30.10.10.6 71 1] APO state 1(0-Disable, 1-Enable)
+[WASON]
+[WASON][CallID] [30.10.90.6 30.10.10.6 85]:
+[WASON]    Conn [30.10.90.6 30.10.10.6 85 1] APO state 1(0-Disable, 1-Enable)
+[WASON]
+[WASON][CallID] [30.10.90.6 30.10.10.6 122]:
+[WASON]    Conn [30.10.90.6 30.10.10.6 122 1635] APO state 1(0-Disable, 1-Enable)
+[WASON]    Conn [30.10.90.6 30.10.10.6 122 1] APO state 1(0-Disable, 1-Enable)
+[WASON]
+[WASON][CallID] [30.10.90.6 30.10.10.6 443]:
+[WASON]    Conn [30.10.90.6 30.10.10.6 443 1347] APO state 1(0-Disable, 1-Enable)
+[WASON]    Conn [30.10.90.6 30.10.10.6 443 105] APO state 1(0-Disable, 1-Enable)
+[WASON]value = 0 = 0x0(32); value = 0 = 0x0(64)
+[WASON]
+[WASON]ushell command finished
+[WASON]start time: 2025-10-07  14:11:37(19140916 s, 802 ms)
+[WASON] end  time: 19140916 s, 803 ms
+[WASON]
+ZXPOTN(diag-shell-MPU-33/65/0)#end
+ZXPOTN#di
+ZXPOTN#diagnose
+Enter diagnose mode. Return with Ctrl+Z.
+Warning: The diagnosis involves the internal implementation of the vendor product. Perform it under the guidance of the vendor.
+ZXPOTN(diag)#di
+ZXPOTN(diag)#diag sh
+ZXPOTN(diag)#diag shell MPU-33/65/0
+ZXPOTN(diag-shell-MPU-33/65/0)#exe shell APOPLUS
+shell APOPLUS
+Now switch to APOPLUS shell ...
+[APOPLUS]#
+ZXPOTN(diag-shell-MPU-33/65/0)#exec diag_c("och-cmd showinst")
+diag_c("och-cmd showinst")
+[APOPLUS]
+[APOPLUS] === show all och-inst ===
+[APOPLUS]TopNeIp : 20.10.90.254, WasonSiteId : 0x1e0a5a06, InstNum : 19
+[APOPLUS]
+[APOPLUS]No     SourceNodeID    DestNodeID      TrafficID       ConnNo          ConnAttr        ConnType        State
+[APOPLUS]0      0x1e0a5a06      0x1e0a0a06      0x00000002      0x00000001      0x00000001      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]1      0x1e0a5a06      0x1e0a0a06      0x00000002      0x000005d4      0x00000010      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]2      0x1e0a5a06      0x1e0a0a06      0x00000003      0x00000001      0x00000001      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]3      0x1e0a5a06      0x1e0a0a06      0x00000003      0x00000719      0x00000010      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]4      0x1e0a5a06      0x1e0a0a06      0x00000008      0x000001ee      0x00000001      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]5      0x1e0a5a06      0x1e0a0a06      0x00000008      0x000008ca      0x00000010      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]6      0x1e0a5a06      0x1e0a0a06      0x0000000a      0x00000001      0x00000001      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]7      0x1e0a5a06      0x1e0a0a06      0x0000000a      0x000007ac      0x00000010      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]8      0x1e0a5a06      0x1e0a0a06      0x0000000c      0x00000001      0x00000001      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]9      0x1e0a5a06      0x1e0a0a06      0x0000000c      0x00000851      0x00000010      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]10     0x1e0a5a06      0x1e0a0a06      0x00000034      0x000000b2      0x00000001      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]11     0x1e0a5a06      0x1e0a0a06      0x00000034      0x000006cf      0x00000010      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]12     0x1e0a5a06      0x1e0a0a06      0x00000047      0x00000001      0x00000001      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]13     0x1e0a5a06      0x1e0a0a06      0x00000047      0x000005d6      0x00000010      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]14     0x1e0a5a06      0x1e0a0a06      0x00000055      0x00000001      0x00000001      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]15     0x1e0a5a06      0x1e0a0a06      0x0000007a      0x00000001      0x00000001      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]16     0x1e0a5a06      0x1e0a0a06      0x0000007a      0x00000663      0x00000010      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]17     0x1e0a5a06      0x1e0a0a06      0x000001bb      0x00000069      0x00000001      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]18     0x1e0a5a06      0x1e0a0a06      0x000001bb      0x00000543      0x00000010      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]value = 0 = 0x0(32); value = 0 = 0x0(64)
+[APOPLUS]
+[APOPLUS]ushell command finished
+[APOPLUS]start time: 2025-10-07  14:11:56(19140935 s, 288 ms)
+[APOPLUS] end  time: 19140935 s, 289 ms
+[APOPLUS]
+ZXPOTN(diag-shell-MPU-33/65/0)#end
+ZXPOTN#di
+ZXPOTN#diagnose
+Enter diagnose mode. Return with Ctrl+Z.
+Warning: The diagnosis involves the internal implementation of the vendor product. Perform it under the guidance of the vendor.
+ZXPOTN(diag)#di
+ZXPOTN(diag)#diag sh
+ZXPOTN(diag)#diag shell MPU-33/65/0
+ZXPOTN(diag-shell-MPU-33/65/0)#exe sh 186
+shell 186
+Now switch to UEM shell ...
+[UEM]#
+ZXPOTN(diag-shell-MPU-33/65/0)#exe diag_c("tap-cmd pg list all")
+diag_c("tap-cmd pg list all")
+[UEM]
+[UEM]NO.  PgID       PgType   WorkMcu    WorkPort   WorkInf   ProMcu    ProPort    ProInf
+[UEM]1    0x1        OchPg    0x315      0x9e01     0xd59e01   0x315      0x9f01     0xd59f01
+[UEM]   omspg pgtype:3 ifRestore:0 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]2    0x2        OchPg    0x318      0x9e02     0xd89e02   0x318      0x9f02     0xd89f02
+[UEM]   omspg pgtype:3 ifRestore:0 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]3    0x3        OchPg    0x218      0x9e01     0x989e01   0x218      0x9f01     0x989f01
+[UEM]   omspg pgtype:3 ifRestore:0 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]4    0x4        OchPg    0x318      0x9e01     0xd89e01   0x318      0x9f01     0xd89f01
+[UEM]   omspg pgtype:3 ifRestore:1 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]5    0x5        OchPg    0x217      0x9e01     0x979e01   0x217      0x9f01     0x979f01
+[UEM]   omspg pgtype:3 ifRestore:0 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]6    0x6        OchPg    0x217      0x9e02     0x979e02   0x217      0x9f02     0x979f02
+[UEM]   omspg pgtype:3 ifRestore:1 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]no MN Pg in the system!!!
+[UEM]value = 0 = 0x0(32); value = 0 = 0x0(64)
+[UEM]
+[UEM]ushell command finished
+[UEM]start time: 2025-10-07  14:12:09(19140948 s, 676 ms)
+[UEM] end  time: 19140948 s, 677 ms
+[UEM]
+ZXPOTN(diag-shell-MPU-33/65/0)#end
+ZXPOTN#ssh 20.10.10.1 dcn
+Open
+Username:who
+Password:
+        *********************************************************************
+                 Welcome to Access WDM/OTN System
+        *********************************************************************
+Login at 14:12:18 10-07-2025 from 30.200.1.73 through SSH.
+The last successful login was performed at 14:10:54 10-07-2025 from 20.100.10.2 through SSH. Afterwards, 0 authentication failure occurred.
+ZXPOTN#en
+Password:
+ZXPOTN#show le
+======================================================================
+======================================================================
+LE         : the name of logic entity
+Location   : the location of logic entity in the system
+Status     : the status of logic entity(master or slave)
+Sync-state : the state of synchronization
+======================================================================
+======================================================================
+
+LE             Location            Status         Sync-state
+======================================================================
+T_RP_ROUTER    MPU-33/65/0         Master         Synchronized
+----------------------------------------------------------------------
+T_SC           MPU-33/65/0         Master         Synchronized
+----------------------------------------------------------------------
+T_RP_ROUTER    MPU-33/74/0         Slave          Synchronized
+----------------------------------------------------------------------
+T_SC           MPU-33/74/0         Slave          Synchronized
+----------------------------------------------------------------------
+ZXPOTN#show dcnbase
+
+=========================================================
+D - default. C - custom. A - Auto Calc.
+dcn status:  enable
+DevSeriNo(hex):D8641C   NEID(hex): 0.C.64.1C[A]
+DeviceType:ZXONE9700(561)
+baseMac(hex): 0026.edd8.641c
+=========================================================
+qxip                qxipmask            qxmac
+20.100.10.1         255.255.255.240     00d0.1464.0a01[C]
+---------------------------------------------------------
+qxospfenable        qxflood             qxospfarea
+enable              disable             0.0.0.0[D]
+---------------------------------------------------------
+mngip               mngipsubfix         ospfarea
+20.10.10.1          255.255.255.255     0.0.0.0[D]
+---------------------------------------------------------
+ZXPOTN#diag
+Enter diagnose mode. Return with Ctrl+Z.
+Warning: The diagnosis involves the internal implementation of the vendor product. Perform it under the guidance of the vendor.
+ZXPOTN(diag)#diag shell MPU-33/65/0
+ZXPOTN(diag-shell-MPU-33/65/0)#exe shell wason
+shell wason
+Now switch to WASON shell ...
+[WASON]#
+ZXPOTN(diag-shell-MPU-33/65/0)#exe diag_c("cc-cmd pcheck all")
+diag_c("cc-cmd pcheck all")
+[WASON]System Time: 2025-10-07 14:12:36
+[WASON]--------------------------------------------------------------------------------------------------------------
+[WASON]
+[WASON][CALL 1] [30.10.10.6 30.10.50.6 8] COPPER
+[WASON]  [Conn 1][30.10.10.6 30.10.50.6 8 1864]    WR NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]  [Conn 2][30.10.10.6 30.10.50.6 8 1]       W  SF        PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]ServiceState: 1(IN_SERVICE)                    RestoreState: 1(ENABLE)
+[WASON]CallStatus: 11(NORMAL)                         OperResult: 6(RESTORE_SUCC)
+[WASON]A site flow: 1(WR)                             Z site flow: 1(WR)
+[WASON]
+[WASON][PreRout]:
+[WASON]--1--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--1
+[WASON]  --(Has FaultLink)
+[WASON]   --0x1E1E2806--0x011C0201--A0A2
+[WASON]   --0x1E327306--0x009C0201--A0A2
+[WASON]  --(Restore Info:)
+[WASON]    2025-08-18 14:52:38                 Result:10(ALARM_OCCURE_FAIL)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E1E2806  PortID1:0x11C0201   PortID2:0x0         InfoPos:0x8C000241
+[WASON]--2--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--2
+[WASON]  --(Has FaultLink)
+[WASON]   --0x1E1E2806--0x011C0201--A0A2
+[WASON]   --0x1E327306--0x009C0201--A0A2
+[WASON]  --(Restore Info:)
+[WASON]    2025-08-18 14:54:48                 Result:10(ALARM_OCCURE_FAIL)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E1E2806  PortID1:0x11C0201   PortID2:0x0         InfoPos:0x8C000241
+[WASON]--3--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--3
+[WASON]  --(Has FaultLink)
+[WASON]   --0x1E1E2806--0x011C0201--A0A2
+[WASON]   --0x1E327306--0x009C0201--A0A2
+[WASON]  --(Restore Info:)
+[WASON]    2025-08-18 14:57:22                 Result:10(ALARM_OCCURE_FAIL)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E1E2806  PortID1:0x11C0201   PortID2:0x0         InfoPos:0x8C000241
+[WASON]--4--WORK--(USED)--(SUCCESS)--(EverRstrFail_FALSE)--4
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-07 11:10:27                 Result:1(SUCCESS)
+[WASON]--5--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--5
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-26 18:07:51                 Result:10(ALARM_OCCURE_FAIL)
+[WASON]--6--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--6
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-26 18:17:48                 Result:1(SUCCESS)
+[WASON]--7--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--7
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-29 15:44:51                 Result:1(SUCCESS)
+[WASON]--8--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--8
+[WASON]  --(NO FaultLink)
+[WASON]--9--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--9
+[WASON]  --(NO FaultLink)
+[WASON]--10--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--10
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-06 09:15:37                 Result:1(SUCCESS)
+[WASON]--11--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--11
+[WASON]  --(NO FaultLink)
+[WASON]
+[WASON][CALL 2] [30.10.10.6 30.10.50.6 10] COPPER
+[WASON]  [Conn 1][30.10.10.6 30.10.50.6 10 429]    W  NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]ServiceState: 1(IN_SERVICE)                    RestoreState: 1(ENABLE)
+[WASON]CallStatus: 11(NORMAL)                         OperResult: 7(AUTO_RETURN_SUCC)
+[WASON]A site flow: 1(W )                             Z site flow: 1(W )
+[WASON]
+[WASON][PreRout]:
+[WASON]--1--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--1
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-27 16:28:16                 Result:10(ALARM_OCCURE_FAIL)
+[WASON]--2--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--2
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-04 15:04:10                 Result:10(ALARM_OCCURE_FAIL)
+[WASON]--3--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--3
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-04 15:06:33                 Result:10(ALARM_OCCURE_FAIL)
+[WASON]--4--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--4
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-06 07:02:26                 Result:1(SUCCESS)
+[WASON]--5--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--5
+[WASON]  --(NO FaultLink)
+[WASON]--6--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--6
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-04 15:09:50                 Result:1(SUCCESS)
+[WASON]--7--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--7
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-27 11:15:04                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E1E2806  PortID1:0x11C0201   PortID2:0x0         InfoPos:0x8C000241
+[WASON]
+[WASON][CALL 3] [30.10.10.6 30.10.50.6 20] COPPER
+[WASON]  [Conn 1][30.10.10.6 30.10.50.6 20 378]    W  NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]ServiceState: 1(IN_SERVICE)                    RestoreState: 1(ENABLE)
+[WASON]CallStatus: 11(NORMAL)                         OperResult: 7(AUTO_RETURN_SUCC)
+[WASON]A site flow: 1(W )                             Z site flow: 1(W )
+[WASON]
+[WASON][PreRout]:
+[WASON]--1--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--1
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-08 09:24:44                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2020914   NodeID:0x1E0A3206  PortID1:0x5C0201    PortID2:0x2F6       InfoPos:0x1E000B3C
+[WASON]--2--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--2
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-06 17:39:37                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2020914   NodeID:0x1E326406  PortID1:0x5C0201    PortID2:0x2F6       InfoPos:0x1E000B3C
+[WASON]--3--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--3
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-01 15:15:01                 Result:10(ALARM_OCCURE_FAIL)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2020914   NodeID:0x1E0A0A06  PortID1:0x9C0201    PortID2:0x2F6       InfoPos:0x1E0009C7
+[WASON]--4--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--4
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-01 15:18:25                 Result:10(ALARM_OCCURE_FAIL)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2020914   NodeID:0x1E0A0A06  PortID1:0x9C0201    PortID2:0x2F6       InfoPos:0x1E0009C7
+[WASON]--5--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--5
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-01 15:19:53                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2020914   NodeID:0x1E0A0A06  PortID1:0x9C0201    PortID2:0x2F6       InfoPos:0x1E0009C7
+[WASON]--6--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--6
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-08 13:29:10                 Result:1(SUCCESS)
+[WASON]--7--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--7
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-30 10:58:24                 Result:1(SUCCESS)
+[WASON]--8--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--8
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-04 18:17:12                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E1E2806  PortID1:0x11C0201   PortID2:0x0         InfoPos:0x8C000241
+[WASON]--9--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--9
+[WASON]  --(NO FaultLink)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E1E2806  PortID1:0x11C0201   PortID2:0x0         InfoPos:0x8C000241
+[WASON]
+[WASON][CALL 4] [30.10.10.6 30.10.70.6 11] COPPER
+[WASON]  [Conn 1][30.10.10.6 30.10.70.6 11 2208]   WR NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]  [Conn 2][30.10.10.6 30.10.70.6 11 2207]   WR NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]  [Conn 3][30.10.10.6 30.10.70.6 11 1]      W  SF        PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]ServiceState: 1(IN_SERVICE)                    RestoreState: 1(ENABLE)
+[WASON]CallStatus: 6(ALARM_QRYING)                    OperResult: 6(RESTORE_SUCC)
+[WASON]A site flow: 1(WR)                             Z site flow: 1(WR)
+[WASON]
+[WASON][PreRout]:
+[WASON]--1--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--1
+[WASON]  --(Has FaultLink)
+[WASON]   --0x1E1E2806--0x011C0201--A0A2
+[WASON]   --0x1E327306--0x009C0201--A0A2
+[WASON]  --(Restore Info:)
+[WASON]    2025-08-18 14:52:57                 Result:10(ALARM_OCCURE_FAIL)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E1E2806  PortID1:0x11C0201   PortID2:0x0         InfoPos:0x8C000241
+[WASON]--2--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--2
+[WASON]  --(Has FaultLink)
+[WASON]   --0x1E1E2806--0x011C0201--A0A2
+[WASON]   --0x1E327306--0x009C0201--A0A2
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-18 15:56:45                 Result:10(ALARM_OCCURE_FAIL)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E1E2806  PortID1:0x11C0201   PortID2:0x0         InfoPos:0x8C000241
+[WASON]--3--WORK--(USED)--(SUCCESS)--(EverRstrFail_FALSE)--5
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-07 11:10:37                 Result:1(SUCCESS)
+[WASON]--4--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--4
+[WASON]  --(Has FaultLink)
+[WASON]   --0x1E1E2806--0x011C0201--A0A2
+[WASON]   --0x1E327306--0x009C0201--A0A2
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-06 09:15:13                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E1E2806  PortID1:0x11C0201   PortID2:0x0         InfoPos:0x8C000241
+[WASON]--5--WORK--(USED)--(SUCCESS)--(EverRstrFail_FALSE)--6
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-02 10:24:36                 Result:1(SUCCESS)
+[WASON]--6--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--3
+[WASON]  --(Has FaultLink)
+[WASON]   --0x1E1E2806--0x011C0201--A0A2
+[WASON]   --0x1E327306--0x009C0201--A0A2
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-20 12:40:49                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E1E2806  PortID1:0x11C0201   PortID2:0x0         InfoPos:0x8C000241
+[WASON]--7--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--7
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-30 10:58:40                 Result:1(SUCCESS)
+[WASON]--8--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--8
+[WASON]  --(NO FaultLink)
+[WASON]--9--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--9
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-30 16:27:43                 Result:1(SUCCESS)
+[WASON]
+[WASON][CALL 5] [30.10.10.6 30.10.70.6 12] COPPER
+[WASON]  [Conn 1][30.10.10.6 30.10.70.6 12 1]      W  NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]ServiceState: 1(IN_SERVICE)                    RestoreState: 1(ENABLE)
+[WASON]CallStatus: 11(NORMAL)                         OperResult: 7(AUTO_RETURN_SUCC)
+[WASON]A site flow: 1(W )                             Z site flow: 1(W )
+[WASON]
+[WASON][PreRout]:
+[WASON]--1--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--5
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-15 11:19:05                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2020914   NodeID:0x1E0A0A06  PortID1:0x9C0201    PortID2:0x2BA       InfoPos:0x1E0009C7
+[WASON]--2--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--6
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-04 15:47:19                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2020914   NodeID:0x1E0A0A06  PortID1:0x9C0201    PortID2:0x2BA       InfoPos:0x1E0009C7
+[WASON]--3--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--7
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-15 11:23:47                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2020914   NodeID:0x1E0A0A06  PortID1:0x9C0201    PortID2:0x2BA       InfoPos:0x1E0009C7
+[WASON]--4--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--8
+[WASON]  --(NO FaultLink)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2020914   NodeID:0x1E327306  PortID1:0x5C0201    PortID2:0x2BA       InfoPos:0x1E000B3C
+[WASON]--5--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--9
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-04 15:18:27                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2020914   NodeID:0x1E0A0A06  PortID1:0x9C0201    PortID2:0x2BA       InfoPos:0x1E0009C7
+[WASON]--6--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--1
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-06 09:51:24                 Result:1(SUCCESS)
+[WASON]--7--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--2
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-04 15:44:14                 Result:10(ALARM_OCCURE_FAIL)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2020914   NodeID:0x1E0A1E06  PortID1:0x5C0201    PortID2:0x2DE       InfoPos:0x1E000B3C
+[WASON]--8--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--3
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-01 15:14:13                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2020914   NodeID:0x1E0A0A06  PortID1:0x9C0201    PortID2:0x2DE       InfoPos:0x1E0009C7
+[WASON]--9--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--4
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-04 15:41:53                 Result:10(ALARM_OCCURE_FAIL)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2020914   NodeID:0x1E0A0A06  PortID1:0x9C0201    PortID2:0x2DE       InfoPos:0x1E0009C7
+[WASON]--10--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--10
+[WASON]  --(NO FaultLink)
+[WASON]--11--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--11
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-08-31 16:15:39                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E1E2806  PortID1:0x11C0201   PortID2:0x0         InfoPos:0x8C000241
+[WASON]--12--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--12
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-08-28 14:15:42                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E1E2806  PortID1:0x11C0201   PortID2:0x0         InfoPos:0x8C000241
+[WASON]
+[WASON][CALL 6] [30.10.10.6 30.10.70.6 13] COPPER
+[WASON]  [Conn 1][30.10.10.6 30.10.70.6 13 2771]   WR NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]  [Conn 2][30.10.10.6 30.10.70.6 13 884]    W  NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]ServiceState: 1(IN_SERVICE)                    RestoreState: 1(ENABLE)
+[WASON]CallStatus: 4(CONN_DELING)                     OperResult: 57(AUTO_RETURN_LOCKED)
+[WASON]A site flow: 1(WR)                             Z site flow: 1(WR)
+[WASON]
+[WASON][PreRout]:
+[WASON]--1--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--1
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-07 08:35:33                 Result:10(ALARM_OCCURE_FAIL)
+[WASON]--2--WORK--(USED)--(SUCCESS)--(EverRstrFail_FALSE)--2
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-07 08:38:05                 Result:1(SUCCESS)
+[WASON]--3--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--3
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-06 15:21:20                 Result:1(SUCCESS)
+[WASON]--4--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--4
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-04 15:34:50                 Result:10(ALARM_OCCURE_FAIL)
+[WASON]--5--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--5
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-30 12:49:37                 Result:1(SUCCESS)
+[WASON]--6--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--6
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-04 15:38:47                 Result:10(ALARM_OCCURE_FAIL)
+[WASON]--7--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--7
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-06 13:47:35                 Result:1(SUCCESS)
+[WASON]--8--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--8
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-30 17:19:36                 Result:1(SUCCESS)
+[WASON]--9--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--9
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-04 15:42:00                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E1E2806  PortID1:0x11C0201   PortID2:0x0         InfoPos:0x8C000241
+[WASON]--10--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--10
+[WASON]  --(NO FaultLink)
+[WASON]
+[WASON][CALL 7] [30.10.10.6 30.10.110.6 2] COPPER
+[WASON]  [Conn 1][30.10.10.6 30.10.110.6 2 430]    W  NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]ServiceState: 1(IN_SERVICE)                    RestoreState: 1(ENABLE)
+[WASON]CallStatus: 11(NORMAL)                         OperResult: 7(AUTO_RETURN_SUCC)
+[WASON]A site flow: 1(W )                             Z site flow: 1(W )
+[WASON]
+[WASON][PreRout]:
+[WASON]--1--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--1
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-06 17:39:23                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E1E2806  PortID1:0x11C0201   PortID2:0x0         InfoPos:0x8C000241
+[WASON]--2--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--2
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-24 16:45:07                 Result:10(ALARM_OCCURE_FAIL)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E1E2806  PortID1:0x11C0201   PortID2:0x0         InfoPos:0x8C000241
+[WASON]--3--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--3
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-06 09:14:48                 Result:1(SUCCESS)
+[WASON]--4--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--4
+[WASON]  --(NO FaultLink)
+[WASON]--5--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--5
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-06 13:47:42                 Result:1(SUCCESS)
+[WASON]--6--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--6
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-08-20 10:38:27                 Result:1(SUCCESS)
+[WASON]
+[WASON][CALL 8] [30.10.10.6 30.10.110.6 5] COPPER
+[WASON]  [Conn 1][30.10.10.6 30.10.110.6 5 1]      W  NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]ServiceState: 1(IN_SERVICE)                    RestoreState: 1(ENABLE)
+[WASON]CallStatus: 11(NORMAL)                         OperResult: 7(AUTO_RETURN_SUCC)
+[WASON]A site flow: 1(W )                             Z site flow: 1(W )
+[WASON]
+[WASON][PreRout]:
+[WASON]--1--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--1
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-06 17:39:44                 Result:1(SUCCESS)
+[WASON]--2--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--2
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-06 17:59:54                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E1E2806  PortID1:0x11C0201   PortID2:0x0         InfoPos:0x8C000241
+[WASON]--3--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--3
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-15 10:21:54                 Result:1(SUCCESS)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E1E2806  PortID1:0x11C0201   PortID2:0x0         InfoPos:0x8C000241
+[WASON]--4--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--4
+[WASON]  --(NO FaultLink)
+[WASON]--5--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--5
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-08-20 06:51:38                 Result:1(SUCCESS)
+[WASON]--6--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--6
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-06 13:47:48                 Result:1(SUCCESS)
+[WASON]--7--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--7
+[WASON]  --(NO FaultLink)
+[WASON]
+[WASON][CALL 9] [30.10.10.6 30.10.110.6 48] COPPER
+[WASON]  [Conn 1][30.10.10.6 30.10.110.6 48 1515]  WR NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]  [Conn 2][30.10.10.6 30.10.110.6 48 161]   W  SF        PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]ServiceState: 1(IN_SERVICE)                    RestoreState: 1(ENABLE)
+[WASON]CallStatus: 11(NORMAL)                         OperResult: 6(RESTORE_SUCC)
+[WASON]A site flow: 1(WR)                             Z site flow: 1(WR)
+[WASON]
+[WASON][PreRout]:
+[WASON]--1--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--1
+[WASON]  --(Has FaultLink)
+[WASON]   --0x1E1E2806--0x011C0201--A0A2
+[WASON]   --0x1E327306--0x009C0201--A0A2
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-07 11:08:36                 Result:10(ALARM_OCCURE_FAIL)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E1E2806  PortID1:0x11C0201   PortID2:0x0         InfoPos:0x8C000241
+[WASON]--2--WORK--(USED)--(SUCCESS)--(EverRstrFail_FALSE)--2
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-07 11:10:22                 Result:1(SUCCESS)
+[WASON]--3--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--3
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-26 17:59:28                 Result:1(SUCCESS)
+[WASON]--4--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--4
+[WASON]  --(NO FaultLink)
+[WASON]--5--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--5
+[WASON]  --(NO FaultLink)
+[WASON]
+[WASON][CALL 10] [30.10.10.6 30.10.110.6 50] COPPER
+[WASON]  [Conn 1][30.10.10.6 30.10.110.6 50 1840]  WR NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]  [Conn 2][30.10.10.6 30.10.110.6 50 1]     W  SF        PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]ServiceState: 1(IN_SERVICE)                    RestoreState: 1(ENABLE)
+[WASON]CallStatus: 11(NORMAL)                         OperResult: 6(RESTORE_SUCC)
+[WASON]A site flow: 1(WR)                             Z site flow: 1(WR)
+[WASON]
+[WASON][PreRout]:
+[WASON]--1--WORK--(UNUSED)--(FAIL)--(EverRstrFail_FALSE)--1
+[WASON]  --(Has FaultLink)
+[WASON]   --0x1E1E2806--0x011C0201--A0A2
+[WASON]   --0x1E327306--0x009C0201--A0A2
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-07 11:08:47                 Result:10(ALARM_OCCURE_FAIL)
+[WASON]  --(Fail Info:)
+[WASON]    Code:0x2010728   NodeID:0x1E1E2806  PortID1:0x11C0201   PortID2:0x0         InfoPos:0x8C000241
+[WASON]--2--WORK--(USED)--(SUCCESS)--(EverRstrFail_FALSE)--2
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-07 11:12:04                 Result:1(SUCCESS)
+[WASON]--3--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--3
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-10-06 09:14:17                 Result:1(SUCCESS)
+[WASON]--4--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--4
+[WASON]  --(NO FaultLink)
+[WASON]--5--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--5
+[WASON]  --(NO FaultLink)
+[WASON]
+[WASON]***********************************THE END!************************************
+[WASON]#
+[WASON]value = 0 = 0x0(32); value = 0 = 0x0(64)
+[WASON]
+[WASON]ushell command finished
+[WASON]start time: 2025-10-07  14:12:36(18796714 s, 859 ms)
+[WASON] end  time: 18796715 s, 543 ms
+[WASON]
+ZXPOTN(diag-shell-MPU-33/65/0)#exec diag_c("cc-cmd setcallcv SetupApo")
+diag_c("cc-cmd setcallcv SetupApo")
+[WASON]
+[WASON][CallID] [30.10.10.6 30.10.50.6 8]:
+[WASON]    Conn [30.10.10.6 30.10.50.6 8 1864] APO state 1(0-Disable, 1-Enable)
+[WASON]    Conn [30.10.10.6 30.10.50.6 8 1] APO state 1(0-Disable, 1-Enable)
+[WASON]
+[WASON][CallID] [30.10.10.6 30.10.50.6 10]:
+[WASON]    Conn [30.10.10.6 30.10.50.6 10 429] APO state 1(0-Disable, 1-Enable)
+[WASON]
+[WASON][CallID] [30.10.10.6 30.10.50.6 20]:
+[WASON]    Conn [30.10.10.6 30.10.50.6 20 378] APO state 1(0-Disable, 1-Enable)
+[WASON]
+[WASON][CallID] [30.10.10.6 30.10.70.6 11]:
+[WASON]    Conn [30.10.10.6 30.10.70.6 11 2208] APO state 1(0-Disable, 1-Enable)
+[WASON]    Conn [30.10.10.6 30.10.70.6 11 2207] APO state 1(0-Disable, 1-Enable)
+[WASON]    Conn [30.10.10.6 30.10.70.6 11 1] APO state 1(0-Disable, 1-Enable)
+[WASON]
+[WASON][CallID] [30.10.10.6 30.10.70.6 12]:
+[WASON]    Conn [30.10.10.6 30.10.70.6 12 1] APO state 1(0-Disable, 1-Enable)
+[WASON]
+[WASON][CallID] [30.10.10.6 30.10.70.6 13]:
+[WASON]    Conn [30.10.10.6 30.10.70.6 13 2771] APO state 1(0-Disable, 1-Enable)
+[WASON]    Conn [30.10.10.6 30.10.70.6 13 884] APO state 1(0-Disable, 1-Enable)
+[WASON]
+[WASON][CallID] [30.10.10.6 30.10.110.6 2]:
+[WASON]    Conn [30.10.10.6 30.10.110.6 2 430] APO state 1(0-Disable, 1-Enable)
+[WASON]
+[WASON][CallID] [30.10.10.6 30.10.110.6 5]:
+[WASON]    Conn [30.10.10.6 30.10.110.6 5 1] APO state 1(0-Disable, 1-Enable)
+[WASON]
+[WASON][CallID] [30.10.10.6 30.10.110.6 48]:
+[WASON]    Conn [30.10.10.6 30.10.110.6 48 1515] APO state 1(0-Disable, 1-Enable)
+[WASON]    Conn [30.10.10.6 30.10.110.6 48 161] APO state 1(0-Disable, 1-Enable)
+[WASON]
+[WASON][CallID] [30.10.10.6 30.10.110.6 50]:
+[WASON]    Conn [30.10.10.6 30.10.110.6 50 1840] APO state 1(0-Disable, 1-Enable)
+[WASON]    Conn [30.10.10.6 30.10.110.6 50 1] APO state 1(0-Disable, 1-Enable)
+[WASON]value = 0 = 0x0(32); value = 0 = 0x0(64)
+[WASON]
+[WASON]ushell command finished
+[WASON]start time: 2025-10-07  14:12:53(18796731 s, 421 ms)
+[WASON] end  time: 18796731 s, 421 ms
+[WASON]
+ZXPOTN(diag-shell-MPU-33/65/0)#end
+ZXPOTN#di
+ZXPOTN#diagnose
+Enter diagnose mode. Return with Ctrl+Z.
+Warning: The diagnosis involves the internal implementation of the vendor product. Perform it under the guidance of the vendor.
+ZXPOTN(diag)#di
+ZXPOTN(diag)#diag sh
+ZXPOTN(diag)#diag shell MPU-33/65/0
+ZXPOTN(diag-shell-MPU-33/65/0)#exe shell APOPLUS
+shell APOPLUS
+Now switch to APOPLUS shell ...
+[APOPLUS]#
+ZXPOTN(diag-shell-MPU-33/65/0)#exec diag_c("och-cmd showinst")
+diag_c("och-cmd showinst")
+[APOPLUS]
+[APOPLUS] === show all och-inst ===
+[APOPLUS]TopNeIp : 20.10.10.254, WasonSiteId : 0x1e0a0a06, InstNum : 19
+[APOPLUS]
+[APOPLUS]No     SourceNodeID    DestNodeID      TrafficID       ConnNo          ConnAttr        ConnType        State
+[APOPLUS]0      0x1e0a5a06      0x1e0a0a06      0x00000055      0x00000001      0x00000001      0x00000001      HEADCMD_WAITING
+[APOPLUS]1      0x1e0a0a06      0x1e0a3206      0x00000008      0x00000001      0x00000001      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]2      0x1e0a0a06      0x1e0a3206      0x00000008      0x00000748      0x00000010      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]3      0x1e0a0a06      0x1e0a3206      0x0000000a      0x000001ad      0x00000001      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]4      0x1e0a0a06      0x1e0a3206      0x00000014      0x0000017a      0x00000001      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]5      0x1e0a0a06      0x1e0a3206      0x00000014      0x000007a0      0x00000010      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]6      0x1e0a0a06      0x1e0a4606      0x0000000b      0x00000001      0x00000001      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]7      0x1e0a0a06      0x1e0a4606      0x0000000b      0x0000089f      0x00000010      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]8      0x1e0a0a06      0x1e0a4606      0x0000000b      0x000008a0      0x00000010      0x00000001      HEAD_POWER_ADJUSTING
+[APOPLUS]9      0x1e0a0a06      0x1e0a4606      0x0000000c      0x00000001      0x00000001      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]10     0x1e0a0a06      0x1e0a4606      0x0000000d      0x00000374      0x00000001      0x00000001      HEAD_POWER_ADJUSTING
+[APOPLUS]11     0x1e0a0a06      0x1e0a4606      0x0000000d      0x00000ad3      0x00000010      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]12     0x1e0a0a06      0x1e0a6e06      0x00000002      0x000001ae      0x00000001      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]13     0x1e0a0a06      0x1e0a6e06      0x00000005      0x00000001      0x00000001      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]14     0x1e0a0a06      0x1e0a6e06      0x00000005      0x000007f3      0x00000010      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]15     0x1e0a0a06      0x1e0a6e06      0x00000030      0x000000a1      0x00000001      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]16     0x1e0a0a06      0x1e0a6e06      0x00000030      0x000005eb      0x00000010      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]17     0x1e0a0a06      0x1e0a6e06      0x00000032      0x00000001      0x00000001      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]18     0x1e0a0a06      0x1e0a6e06      0x00000032      0x00000730      0x00000010      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]value = 0 = 0x0(32); value = 0 = 0x0(64)
+[APOPLUS]
+[APOPLUS]ushell command finished
+[APOPLUS]start time: 2025-10-07  14:13:19(18796757 s, 943 ms)
+[APOPLUS] end  time: 18796757 s, 944 ms
+[APOPLUS]
+ZXPOTN(diag-shell-MPU-33/65/0)#end
+ZXPOTN#di
+ZXPOTN#diagnose
+Enter diagnose mode. Return with Ctrl+Z.
+Warning: The diagnosis involves the internal implementation of the vendor product. Perform it under the guidance of the vendor.
+ZXPOTN(diag)#dis
+dis
+  ^
+%Error 140303: Invalid input detected at '^' marker.
+ZXPOTN(diag)#dish
+dish
+  ^
+%Error 140303: Invalid input detected at '^' marker.
+ZXPOTN(diag)#d
+ZXPOTN(diag)#diag sh
+ZXPOTN(diag)#diag shell MPU-33/65/0
+ZXPOTN(diag-shell-MPU-33/65/0)#exe sh 186
+shell 186
+Now switch to UEM shell ...
+[UEM]#
+ZXPOTN(diag-shell-MPU-33/65/0)#exe diag_c("tap-cmd pg list all")
+diag_c("tap-cmd pg list all")
+[UEM]
+[UEM]NO.  PgID       PgType   WorkMcu    WorkPort   WorkInf   ProMcu    ProPort    ProInf
+[UEM]1    0x1        OchPg    0x411      0x9e02     0x1119e02  0x411      0x9f02     0x1119f02
+[UEM]   omspg pgtype:3 ifRestore:0 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]2    0x2        OchPg    0x412      0x9e02     0x1129e02  0x412      0x9f02     0x1129f02
+[UEM]   omspg pgtype:3 ifRestore:0 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]3    0x3        OchPg    0x410      0x9e01     0x1109e01  0x410      0x9f01     0x1109f01
+[UEM]   omspg pgtype:3 ifRestore:0 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]4    0x4        OchPg    0x40f      0x9e02     0x10f9e02  0x40f      0x9f02     0x10f9f02
+[UEM]   omspg pgtype:3 ifRestore:0 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]5    0x5        OchPg    0x40f      0x9e01     0x10f9e01  0x40f      0x9f01     0x10f9f01
+[UEM]   omspg pgtype:3 ifRestore:0 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]6    0x6        OchPg    0x411      0x9e01     0x1119e01  0x411      0x9f01     0x1119f01
+[UEM]   omspg pgtype:3 ifRestore:1 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]7    0x7        OchPg    0x217      0x9e01     0x979e01   0x217      0x9f01     0x979f01
+[UEM]   omspg pgtype:3 ifRestore:0 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]8    0x8        OchPg    0x217      0x9e02     0x979e02   0x217      0x9f02     0x979f02
+[UEM]   omspg pgtype:3 ifRestore:1 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]9    0x3eb      OchPg    0x10a      0x9e02     0x4a9e02   0x10a      0x9f02     0x4a9f02
+[UEM]   omspg pgtype:3 ifRestore:1 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]10   0x3ec      OchPg    0x109      0x9e02     0x499e02   0x109      0x9f02     0x499f02
+[UEM]   omspg pgtype:3 ifRestore:1 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]11   0x3ed      OchPg    0x10a      0x9e01     0x4a9e01   0x10a      0x9f01     0x4a9f01
+[UEM]   omspg pgtype:3 ifRestore:1 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]12   0x3ee      OchPg    0x109      0x9e01     0x499e01   0x109      0x9f01     0x499f01
+[UEM]   omspg pgtype:3 ifRestore:1 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]no MN Pg in the system!!!
+[UEM]value = 0 = 0x0(32); value = 0 = 0x0(64)
+[UEM]
+[UEM]ushell command finished
+[UEM]start time: 2025-10-07  14:14:02(18796801 s, 318 ms)
+[UEM] end  time: 18796801 s, 319 ms
+[UEM]
+ZXPOTN(diag-shell-MPU-33/65/0)#end
+ZXPOTN#ssh 20.10.30.1 dcn
+Open
+Username:who
+Password:
+        *********************************************************************
+                 Welcome to Access WDM/OTN System
+        *********************************************************************
+Login at 14:14:12 10-07-2025 from 30.200.1.5 through SSH.
+The last successful login was performed at 15:45:45 09-30-2025 from 30.200.1.5 through SSH. Afterwards, 0 authentication failure occurred.
+ZXPOTN#en
+Password:
+ZXPOTN#show le
+======================================================================
+======================================================================
+LE         : the name of logic entity
+Location   : the location of logic entity in the system
+Status     : the status of logic entity(master or slave)
+Sync-state : the state of synchronization
+======================================================================
+======================================================================
+
+LE             Location            Status         Sync-state
+======================================================================
+T_RP_ROUTER    MPU-33/7/0          Master         Synchronized
+----------------------------------------------------------------------
+T_SC           MPU-33/7/0          Master         Synchronized
+----------------------------------------------------------------------
+T_RP_ROUTER    MPU-33/6/0          Slave          Synchronized
+----------------------------------------------------------------------
+T_SC           MPU-33/6/0          Slave          Synchronized
+----------------------------------------------------------------------
+ZXPOTN#show dcnbase
+
+=========================================================
+D - default. C - custom. A - Auto Calc.
+dcn status:  enable
+DevSeriNo(hex):D8633B   NEID(hex): 0.8.63.3B[A]
+DeviceType:ZXONE9700(561)
+baseMac(hex): 0026.edd8.633b
+=========================================================
+qxip                qxipmask            qxmac
+--                  --                  0000.0000.0000[C]
+---------------------------------------------------------
+qxospfenable        qxflood             qxospfarea
+--                  --                  --
+---------------------------------------------------------
+mngip               mngipsubfix         ospfarea
+20.10.30.1          255.255.255.255     0.0.0.0[D]
+---------------------------------------------------------
+ZXPOTN#diag
+Enter diagnose mode. Return with Ctrl+Z.
+Warning: The diagnosis involves the internal implementation of the vendor product. Perform it under the guidance of the vendor.
+ZXPOTN(diag)#diag shell MPU-33/7/0
+ZXPOTN(diag-shell-MPU-33/7/0)#exe shell wason
+shell wason
+Now switch to WASON shell ...
+[WASON]#
+ZXPOTN(diag-shell-MPU-33/7/0)#exe diag_c("cc-cmd pcheck all")
+diag_c("cc-cmd pcheck all")
+[WASON]System Time: 2025-10-07 14:14:31
+[WASON]--------------------------------------------------------------------------------------------------------------
+[WASON]
+[WASON][CALL 1] [30.10.30.6 30.10.110.6 1] COPPER
+[WASON]  [Conn 1][30.10.30.6 30.10.110.6 1 1]      W  NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]ServiceState: 1(IN_SERVICE)                    RestoreState: 1(ENABLE)
+[WASON]CallStatus: 11(NORMAL)                         OperResult: 7(AUTO_RETURN_SUCC)
+[WASON]A site flow: 1(W )                             Z site flow: 1(W )
+[WASON]
+[WASON][PreRout]:
+[WASON]--1--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--1
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-08-13 21:44:24                 Result:1(SUCCESS)
+[WASON]--2--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--2
+[WASON]  --(NO FaultLink)
+[WASON]
+[WASON][CALL 2] [30.10.30.6 30.10.110.6 2] COPPER
+[WASON]  [Conn 1][30.10.30.6 30.10.110.6 2 1]      W  NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]ServiceState: 1(IN_SERVICE)                    RestoreState: 1(ENABLE)
+[WASON]CallStatus: 11(NORMAL)                         OperResult: 7(AUTO_RETURN_SUCC)
+[WASON]A site flow: 1(W )                             Z site flow: 1(W )
+[WASON]
+[WASON][PreRout]:
+[WASON]--1--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--1
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-09-08 09:23:52                 Result:1(SUCCESS)
+[WASON]--2--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--2
+[WASON]  --(NO FaultLink)
+[WASON]
+[WASON]***********************************THE END!************************************
+[WASON]#
+[WASON]value = 0 = 0x0(32); value = 0 = 0x0(64)
+[WASON]
+[WASON]ushell command finished
+[WASON]start time: 2025-10-07  14:14:31(20006170 s, 196 ms)
+[WASON] end  time: 20006170 s, 196 ms
+[WASON]
+ZXPOTN(diag-shell-MPU-33/7/0)#exec diag_c("cc-cmd setcallcv SetupApo")
+diag_c("cc-cmd setcallcv SetupApo")
+[WASON]
+[WASON][CallID] [30.10.30.6 30.10.110.6 1]:
+[WASON]    Conn [30.10.30.6 30.10.110.6 1 1] APO state 1(0-Disable, 1-Enable)
+[WASON]
+[WASON][CallID] [30.10.30.6 30.10.110.6 2]:
+[WASON]    Conn [30.10.30.6 30.10.110.6 2 1] APO state 1(0-Disable, 1-Enable)
+[WASON]value = 0 = 0x0(32); value = 0 = 0x0(64)
+[WASON]
+[WASON]ushell command finished
+[WASON]start time: 2025-10-07  14:14:34(20006173 s, 166 ms)
+[WASON] end  time: 20006173 s, 166 ms
+[WASON]
+ZXPOTN(diag-shell-MPU-33/7/0)#end
+ZXPOTN#di
+ZXPOTN#diagnose
+Enter diagnose mode. Return with Ctrl+Z.
+Warning: The diagnosis involves the internal implementation of the vendor product. Perform it under the guidance of the vendor.
+ZXPOTN(diag)#di
+ZXPOTN(diag)#diag sh
+ZXPOTN(diag)#diag shell MPU-33/7/0
+ZXPOTN(diag-shell-MPU-33/7/0)#exe shell APOPLUS
+shell APOPLUS
+Now switch to APOPLUS shell ...
+[APOPLUS]#
+ZXPOTN(diag-shell-MPU-33/7/0)#exec diag_c("och-cmd showinst")
+diag_c("och-cmd showinst")
+[APOPLUS]
+[APOPLUS] === show all och-inst ===
+[APOPLUS]TopNeIp : 20.10.30.254, WasonSiteId : 0x1e0a1e06, InstNum : 6
+[APOPLUS]
+[APOPLUS]No     SourceNodeID    DestNodeID      TrafficID       ConnNo          ConnAttr        ConnType        State
+[APOPLUS]0      0x061e0a1e      0x066e0a1e      0x01000000      0x00000001      0x00000001      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]1      0x061e0a1e      0x066e0a1e      0x02000000      0x00000001      0x00000001      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]2      0x1e0a5a06      0x1e0a0a06      0x00000055      0x00000001      0x00000001      0x00000001      HEADCMD_WAITING
+[APOPLUS]3      0x1e0a0a06      0x1e0a4606      0x0000000b      0x000008a0      0x00000010      0x00000001      HEADCMD_WAITING
+[APOPLUS]4      0x1e0a0a06      0x1e0a4606      0x0000000d      0x00000374      0x00000001      0x00000001      HEADCMD_WAITING
+[APOPLUS]5      0x1e0a0a06      0x1e0a6e06      0x00000002      0x000001ae      0x00000001      0x00000001      HEADCMD_WAITING
+[APOPLUS]value = 0 = 0x0(32); value = 0 = 0x0(64)
+[APOPLUS]
+[APOPLUS]ushell command finished
+[APOPLUS]start time: 2025-10-07  14:14:47(20006185 s, 419 ms)
+[APOPLUS] end  time: 20006185 s, 419 ms
+[APOPLUS]
+ZXPOTN(diag-shell-MPU-33/7/0)#end
+ZXPOTN#di
+ZXPOTN#diagnose
+Enter diagnose mode. Return with Ctrl+Z.
+Warning: The diagnosis involves the internal implementation of the vendor product. Perform it under the guidance of the vendor.
+ZXPOTN(diag)#di
+ZXPOTN(diag)#diag sh
+ZXPOTN(diag)#diag shell MPU-33/7/0
+ZXPOTN(diag-shell-MPU-33/7/0)#exe sh 186
+shell 186
+Now switch to UEM shell ...
+[UEM]#
+ZXPOTN(diag-shell-MPU-33/7/0)#exe diag_c("tap-cmd pg list all")
+diag_c("tap-cmd pg list all")
+[UEM]
+[UEM]NO.  PgID       PgType   WorkMcu    WorkPort   WorkInf   ProMcu    ProPort    ProInf
+[UEM]1    0x3e9      OchPg    0x10d      0x9e01     0x4d9e01   0x10d      0x9f01     0x4d9f01
+[UEM]   omspg pgtype:3 ifRestore:1 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]2    0x3ea      OchPg    0x10e      0x9e01     0x4e9e01   0x10e      0x9f01     0x4e9f01
+[UEM]   omspg pgtype:3 ifRestore:1 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]3    0x3ef      OchPg    0x312      0x9e01     0xd29e01   0x312      0x9f01     0xd29f01
+[UEM]   omspg pgtype:3 ifRestore:1 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]4    0x3f0      OchPg    0x312      0x9e02     0xd29e02   0x312      0x9f02     0xd29f02
+[UEM]   omspg pgtype:3 ifRestore:1 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]5    0x3f1      OchPg    0x313      0x9e01     0xd39e01   0x313      0x9f01     0xd39f01
+[UEM]   omspg pgtype:3 ifRestore:1 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]6    0x3f2      OchPg    0x313      0x9e02     0xd39e02   0x313      0x9f02     0xd39f02
+[UEM]   omspg pgtype:3 ifRestore:1 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]no MN Pg in the system!!!
+[UEM]value = 0 = 0x0(32); value = 0 = 0x0(64)
+[UEM]
+[UEM]ushell command finished
+[UEM]start time: 2025-10-07  14:14:59(20006198 s, 101 ms)
+[UEM] end  time: 20006198 s, 101 ms
+[UEM]
+ZXPOTN(diag-shell-MPU-33/7/0)#end
+ZXPOTN#ssh 20.10.50.1 dcn
+Open
+Username:who
+Password:
+        *********************************************************************
+                 Welcome to Access WDM/OTN System
+        *********************************************************************
+Login at 14:15:09 10-07-2025 from 30.200.1.17 through SSH.
+The last successful login was performed at 15:47:07 09-30-2025 from 30.200.1.17 through SSH. Afterwards, 0 authentication failure occurred.
+ZXPOTN#en
+Password:
+ZXPOTN#show le
+======================================================================
+======================================================================
+LE         : the name of logic entity
+Location   : the location of logic entity in the system
+Status     : the status of logic entity(master or slave)
+Sync-state : the state of synchronization
+======================================================================
+======================================================================
+
+LE             Location            Status         Sync-state
+======================================================================
+T_RP_ROUTER    MPU-33/6/0          Master         Synchronized
+----------------------------------------------------------------------
+T_SC           MPU-33/6/0          Master         Synchronized
+----------------------------------------------------------------------
+T_RP_ROUTER    MPU-33/7/0          Slave          Synchronized
+----------------------------------------------------------------------
+T_SC           MPU-33/7/0          Slave          Synchronized
+----------------------------------------------------------------------
+ZXPOTN#show dcnbase
+
+=========================================================
+D - default. C - custom. A - Auto Calc.
+dcn status:  enable
+DevSeriNo(hex):D86207   NEID(hex): 0.8.62.7[A]
+DeviceType:ZXONE9700(561)
+baseMac(hex): 0026.edd8.6207
+=========================================================
+qxip                qxipmask            qxmac
+129.9.1.191         255.255.255.0       00d0.8109.01bf[C]
+---------------------------------------------------------
+qxospfenable        qxflood             qxospfarea
+enable              disable             0.0.0.0[D]
+---------------------------------------------------------
+mngip               mngipsubfix         ospfarea
+20.10.50.1          255.255.255.255     0.0.0.0[D]
+---------------------------------------------------------
+ZXPOTN#diag
+Enter diagnose mode. Return with Ctrl+Z.
+Warning: The diagnosis involves the internal implementation of the vendor product. Perform it under the guidance of the vendor.
+ZXPOTN(diag)#diag shell MPU-33/6/0
+ZXPOTN(diag-shell-MPU-33/6/0)#exe shell wason
+shell wason
+Now switch to WASON shell ...
+[WASON]#
+ZXPOTN(diag-shell-MPU-33/6/0)#exe diag_c("cc-cmd pcheck all")
+diag_c("cc-cmd pcheck all")
+[WASON]System Time: 2025-10-07 14:15:28
+[WASON]--------------------------------------------------------------------------------------------------------------
+[WASON]
+[WASON][CALL 1] [30.10.50.6 30.10.110.6 1] COPPER
+[WASON]  [Conn 1][30.10.50.6 30.10.110.6 1 1]      W  NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]ServiceState: 1(IN_SERVICE)                    RestoreState: 1(ENABLE)
+[WASON]CallStatus: 11(NORMAL)                         OperResult: 59(MDY_SERVICE_STATE_SUCC)
+[WASON]A site flow: 1(W )                             Z site flow: 1(W )
+[WASON]
+[WASON][PreRout]:
+[WASON]--1--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--1
+[WASON]  --(NO FaultLink)
+[WASON]  --(Restore Info:)
+[WASON]    2025-04-26 17:17:56                 Result:1(SUCCESS)
+[WASON]
+[WASON][CALL 2] [30.10.50.6 30.10.110.6 2] COPPER
+[WASON]  [Conn 1][30.10.50.6 30.10.110.6 2 1]      W  NO_ALARM  PathXcID: 0x00000000 ResvXcID: 0x00000000
+[WASON]ServiceState: 1(IN_SERVICE)                    RestoreState: 1(ENABLE)
+[WASON]CallStatus: 11(NORMAL)                         OperResult: 59(MDY_SERVICE_STATE_SUCC)
+[WASON]A site flow: 1(W )                             Z site flow: 1(W )
+[WASON]
+[WASON][PreRout]:
+[WASON]--1--WORK--(UNUSED)--(SUCCESS)--(EverRstrFail_FALSE)--1
+[WASON]  --(NO FaultLink)
+[WASON]
+[WASON]***********************************THE END!************************************
+[WASON]#
+[WASON]value = 0 = 0x0(32); value = 0 = 0x0(64)
+[WASON]
+[WASON]ushell command finished
+[WASON]start time: 2025-10-07  14:15:28(20006271 s, 264 ms)
+[WASON] end  time: 20006271 s, 264 ms
+[WASON]
+ZXPOTN(diag-shell-MPU-33/6/0)#exec diag_c("cc-cmd setcallcv SetupApo")
+diag_c("cc-cmd setcallcv SetupApo")
+[WASON]
+[WASON][CallID] [30.10.50.6 30.10.110.6 1]:
+[WASON]    Conn [30.10.50.6 30.10.110.6 1 1] APO state 1(0-Disable, 1-Enable)
+[WASON]
+[WASON][CallID] [30.10.50.6 30.10.110.6 2]:
+[WASON]    Conn [30.10.50.6 30.10.110.6 2 1] APO state 1(0-Disable, 1-Enable)
+[WASON]value = 0 = 0x0(32); value = 0 = 0x0(64)
+[WASON]
+[WASON]ushell command finished
+[WASON]start time: 2025-10-07  14:15:30(20006273 s, 512 ms)
+[WASON] end  time: 20006273 s, 512 ms
+[WASON]
+ZXPOTN(diag-shell-MPU-33/6/0)#end
+ZXPOTN#di
+ZXPOTN#diagnose
+Enter diagnose mode. Return with Ctrl+Z.
+Warning: The diagnosis involves the internal implementation of the vendor product. Perform it under the guidance of the vendor.
+ZXPOTN(diag)#di
+ZXPOTN(diag)#diag sh
+ZXPOTN(diag)#diag shell MPU-33/6/0
+ZXPOTN(diag-shell-MPU-33/6/0)#exe shell APOPLUS
+shell APOPLUS
+Now switch to APOPLUS shell ...
+[APOPLUS]#
+ZXPOTN(diag-shell-MPU-33/6/0)#exec diag_c("och-cmd showinst")
+diag_c("och-cmd showinst")
+[APOPLUS]
+[APOPLUS] === show all och-inst ===
+[APOPLUS]TopNeIp : 20.10.50.254, WasonSiteId : 0x1e0a3206, InstNum : 4
+[APOPLUS]
+[APOPLUS]No     SourceNodeID    DestNodeID      TrafficID       ConnNo          ConnAttr        ConnType        State
+[APOPLUS]0      0x06320a1e      0x066e0a1e      0x01000000      0x00000001      0x00000001      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]1      0x06320a1e      0x066e0a1e      0x02000000      0x00000001      0x00000001      0x00000001      HEAD_DETECT_WAITING
+[APOPLUS]2      0x1e0a0a06      0x1e0a3206      0x0000000a      0x000001ad      0x00000001      0x00000001      HEADCMD_WAITING
+[APOPLUS]3      0x1e0a0a06      0x1e0a4606      0x0000000b      0x000008a0      0x00000010      0x00000001      HEADCMD_WAITING
+[APOPLUS]value = 0 = 0x0(32); value = 0 = 0x0(64)
+[APOPLUS]
+[APOPLUS]ushell command finished
+[APOPLUS]start time: 2025-10-07  14:15:41(20006284 s, 321 ms)
+[APOPLUS] end  time: 20006284 s, 321 ms
+[APOPLUS]
+ZXPOTN(diag-shell-MPU-33/6/0)#end
+ZXPOTN#di
+ZXPOTN#diagnose
+Enter diagnose mode. Return with Ctrl+Z.
+Warning: The diagnosis involves the internal implementation of the vendor product. Perform it under the guidance of the vendor.
+ZXPOTN(diag)#di
+ZXPOTN(diag)#diag sh
+ZXPOTN(diag)#diag shell MPU-33/6/0
+ZXPOTN(diag-shell-MPU-33/6/0)#exe sh 186
+shell 186
+Now switch to UEM shell ...
+[UEM]#
+ZXPOTN(diag-shell-MPU-33/6/0)#exe diag_c("tap-cmd pg list all")
+diag_c("tap-cmd pg list all")
+[UEM]
+[UEM]NO.  PgID       PgType   WorkMcu    WorkPort   WorkInf   ProMcu    ProPort    ProInf
+[UEM]1    0x3eb      OchPg    0x30b      0x9e01     0xcb9e01   0x30b      0x9f01     0xcb9f01
+[UEM]   omspg pgtype:3 ifRestore:1 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]2    0x3ee      OchPg    0x215      0x9e01     0x959e01   0x215      0x9f01     0x959f01
+[UEM]   omspg pgtype:3 ifRestore:1 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]no MN Pg in the system!!!
+[UEM]value = 0 = 0x0(32); value = 0 = 0x0(64)
+[UEM]
+[UEM]ushell command finished
+[UEM]start time: 2025-10-07  14:15:52(20006295 s, 747 ms)
+[UEM] end  time: 20006295 s, 748 ms
+[UEM]
+ZXPOTN(diag-shell-MPU-33/6/0)#end
+ZXPOTN#ssh 20.10.70.1 dcn
+Open
+Username:who
+Password:
+        *********************************************************************
+                 Welcome to Access WDM/OTN System
+        *********************************************************************
+Login at 14:16:00 10-07-2025 from 30.200.1.37 through SSH.
+The last successful login was performed at 15:48:16 09-30-2025 from 30.200.1.37 through SSH. Afterwards, 0 authentication failure occurred.
+ZXPOTN#en
+Password:
+ZXPOTN#show le
+======================================================================
+======================================================================
+LE         : the name of logic entity
+Location   : the location of logic entity in the system
+Status     : the status of logic entity(master or slave)
+Sync-state : the state of synchronization
+======================================================================
+======================================================================
+
+LE             Location            Status         Sync-state
+======================================================================
+T_RP_ROUTER    MPU-33/7/0          Master         Synchronized
+----------------------------------------------------------------------
+T_SC           MPU-33/7/0          Master         Synchronized
+----------------------------------------------------------------------
+T_RP_ROUTER    MPU-33/6/0          Slave          Synchronized
+----------------------------------------------------------------------
+T_SC           MPU-33/6/0          Slave          Synchronized
+----------------------------------------------------------------------
+ZXPOTN#show dcnbase
+
+=========================================================
+D - default. C - custom. A - Auto Calc.
+dcn status:  enable
+DevSeriNo(hex):D86206   NEID(hex): 0.8.62.6[A]
+DeviceType:ZXONE9700(561)
+baseMac(hex): 0026.edd8.6206
+=========================================================
+qxip                qxipmask            qxmac
+129.9.191.191       255.255.255.0       00d0.8109.bfbf[C]
+---------------------------------------------------------
+qxospfenable        qxflood             qxospfarea
+enable              disable             0.0.0.0[D]
+---------------------------------------------------------
+mngip               mngipsubfix         ospfarea
+20.10.70.1          255.255.255.255     0.0.0.0[D]
+---------------------------------------------------------
+ZXPOTN#diag
+Enter diagnose mode. Return with Ctrl+Z.
+Warning: The diagnosis involves the internal implementation of the vendor product. Perform it under the guidance of the vendor.
+ZXPOTN(diag)#diag shell MPU-33/7/0
+ZXPOTN(diag-shell-MPU-33/7/0)#exe sh 186
+shell 186
+Now switch to UEM shell ...
+[UEM]#
+ZXPOTN(diag-shell-MPU-33/7/0)#exe diag_c("tap-cmd pg list all")
+diag_c("tap-cmd pg list all")
+[UEM]
+[UEM]NO.  PgID       PgType   WorkMcu    WorkPort   WorkInf   ProMcu    ProPort    ProInf
+[UEM]1    0x3ec      OchPg    0x308      0x9e01     0xc89e01   0x308      0x9f01     0xc89f01
+[UEM]   omspg pgtype:3 ifRestore:1 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]2    0x3ed      OchPg    0x20f      0x9e01     0x8f9e01   0x20f      0x9f01     0x8f9f01
+[UEM]   omspg pgtype:3 ifRestore:1 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]no MN Pg in the system!!!
+[UEM]value = 0 = 0x0(32); value = 0 = 0x0(64)
+[UEM]
+[UEM]ushell command finished
+[UEM]start time: 2025-10-07  14:16:19(20006306 s, 781 ms)
+[UEM] end  time: 20006306 s, 781 ms
+[UEM]
+ZXPOTN(diag-shell-MPU-33/7/0)#end
+ZXPOTN#ssh 20.10.110.1 dcn
+Open
+Username:who
+Password:
+        *********************************************************************
+                 Welcome to Access WDM/OTN System
+        *********************************************************************
+Login at 14:16:25 10-07-2025 from 30.200.1.53 through SSH.
+The last successful login was performed at 09:29:00 10-07-2025 from 20.100.10.12 through QX. Afterwards, 0 authentication failure occurred.
+ZXPOTN#en
+Password:
+ZXPOTN#show le
+======================================================================
+======================================================================
+LE         : the name of logic entity
+Location   : the location of logic entity in the system
+Status     : the status of logic entity(master or slave)
+Sync-state : the state of synchronization
+======================================================================
+======================================================================
+
+LE             Location            Status         Sync-state
+======================================================================
+T_RP_ROUTER    MPU-33/7/0          Master         Synchronized
+----------------------------------------------------------------------
+T_SC           MPU-33/7/0          Master         Synchronized
+----------------------------------------------------------------------
+T_RP_ROUTER    MPU-33/6/0          Slave          Synchronized
+----------------------------------------------------------------------
+T_SC           MPU-33/6/0          Slave          Synchronized
+----------------------------------------------------------------------
+ZXPOTN#show dcnbase
+
+=========================================================
+D - default. C - custom. A - Auto Calc.
+dcn status:  enable
+DevSeriNo(hex):D86336   NEID(hex): 0.8.63.36[A]
+DeviceType:ZXONE9700(561)
+baseMac(hex): 0026.edd8.6336
+=========================================================
+qxip                qxipmask            qxmac
+20.100.10.12        255.255.255.240     00d0.1464.0a0c[C]
+---------------------------------------------------------
+qxospfenable        qxflood             qxospfarea
+enable              disable             0.0.0.0[D]
+---------------------------------------------------------
+mngip               mngipsubfix         ospfarea
+20.10.110.1         255.255.255.255     0.0.0.0[D]
+---------------------------------------------------------
+ZXPOTN#diag
+Enter diagnose mode. Return with Ctrl+Z.
+Warning: The diagnosis involves the internal implementation of the vendor product. Perform it under the guidance of the vendor.
+ZXPOTN(diag)#diag shell MPU-33/7/0
+ZXPOTN(diag-shell-MPU-33/7/0)#exe sh 186
+shell 186
+Now switch to UEM shell ...
+[UEM]#
+ZXPOTN(diag-shell-MPU-33/7/0)#exe diag_c("tap-cmd pg list all")
+diag_c("tap-cmd pg list all")
+[UEM]
+[UEM]NO.  PgID       PgType   WorkMcu    WorkPort   WorkInf   ProMcu    ProPort    ProInf
+[UEM]1    0x1        OchPg    0x10f      0x9e01     0x4f9e01   0x10f      0x9f01     0x4f9f01
+[UEM]   omspg pgtype:3 ifRestore:0 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]2    0x2        OchPg    0x111      0x9e02     0x519e02   0x111      0x9f02     0x519f02
+[UEM]   omspg pgtype:3 ifRestore:0 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]3    0x3e9      OchPg    0x111      0x9e01     0x519e01   0x111      0x9f01     0x519f01
+[UEM]   omspg pgtype:3 ifRestore:1 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]4    0x3ea      OchPg    0x112      0x9e01     0x529e01   0x112      0x9f01     0x529f01
+[UEM]   omspg pgtype:3 ifRestore:1 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]5    0x3ef      OchPg    0x213      0x9e01     0x939e01   0x213      0x9f01     0x939f01
+[UEM]   omspg pgtype:3 ifRestore:1 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]6    0x3f0      OchPg    0x213      0x9e02     0x939e02   0x213      0x9f02     0x939f02
+[UEM]   omspg pgtype:3 ifRestore:1 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]7    0x3f1      OchPg    0x30a      0x9e01     0xca9e01   0x30a      0x9f01     0xca9f01
+[UEM]   omspg pgtype:3 ifRestore:1 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]8    0x3f2      OchPg    0x30a      0x9e02     0xca9e02   0x30a      0x9f02     0xca9f02
+[UEM]   omspg pgtype:3 ifRestore:1 wtrtime:300 SwitchMode:1 Holdoff:0 pgenable:1
+[UEM]no MN Pg in the system!!!
+[UEM]value = 0 = 0x0(32); value = 0 = 0x0(64)
+[UEM]
+[UEM]ushell command finished
+[UEM]start time: 2025-10-07  14:16:40(20006325 s, 999 ms)
+[UEM] end  time: 20006325 s, 999 ms
+[UEM]
+ZXPOTN(diag-shell-MPU-33/7/0)#
