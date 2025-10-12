@@ -230,7 +230,7 @@ class Client_Analyzer:
         # 7) เรนเดอร์ตาราง + แบนเนอร์
         st.markdown("### Client Performance")
         styled_df = self._style_dataframe(self.df_filtered.copy())
-        st.dataframe(styled_df, use_container_width=True)
+        st.dataframe(styled_df, use_container_width=True, height=600)
         self._render_status_banner(self.df_filtered)
 
     def _render_summary_kpi(self, df_view: pd.DataFrame) -> None:
