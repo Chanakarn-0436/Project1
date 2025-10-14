@@ -8,6 +8,7 @@ import io, zipfile
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
+import time
 
 # ====== IMPORT ANALYZERS ======
 from CPU_Analyzer import CPU_Analyzer
