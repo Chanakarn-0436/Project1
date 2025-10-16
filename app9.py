@@ -72,7 +72,7 @@ def save_file(upload_date: str, file, use_storage: bool = True):
         os.makedirs(os.path.dirname(stored_path), exist_ok=True)
         with open(stored_path, "wb") as f:
             f.write(file_content)
-    
+
     # บันทึก metadata ลง Supabase Database
     supabase.save_upload_record(upload_date, file.name, stored_path, storage_url)
 
@@ -428,30 +428,28 @@ if menu == "Home":
 
     chosen_date = st.date_input("Select date", value=date.today())
     
-    # การตั้งค่าการเก็บไฟล์
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        files = st.file_uploader(
-            "Upload files (ZIP / Excel / TXT)",
-            type=["zip", "xlsx", "xls", "xlsm", "txt"],
-            accept_multiple_files=True,
-            key=f"uploader_{chosen_date}"
-        )
-    with col2:
-        use_storage = st.checkbox(
-            "☁️ Use Cloud Storage", 
-            value=True,
-            help="Store files in Supabase Storage (accessible from anywhere)"
-        )
-        
-        # แสดงข้อมูลไฟล์
-        if files:
-            total_size = sum(len(f.getbuffer()) for f in files)
-            total_size_mb = total_size / (1024 * 1024)
-            if use_storage:
-                st.caption(f"📊 {len(files)} files ({total_size_mb:.1f}MB) → ☁️ Cloud")
-            else:
-                st.caption(f"📊 {len(files)} files ({total_size_mb:.1f}MB) → 💾 Local")
+    # Storage option
+    use_storage = st.checkbox(
+        "☁️ Use Cloud Storage", 
+        value=True,
+        help="Store files in Supabase Storage (accessible from anywhere)"
+    )
+    
+    files = st.file_uploader(
+        "Upload files (ZIP / Excel / TXT)",
+        type=["zip", "xlsx", "xls", "xlsm", "txt"],
+        accept_multiple_files=True,
+        key=f"uploader_{chosen_date}"
+    )
+    
+    # แสดงข้อมูลไฟล์
+    if files:
+        total_size = sum(len(f.getbuffer()) for f in files)
+        total_size_mb = total_size / (1024 * 1024)
+        if use_storage:
+            st.caption(f"📊 {len(files)} files ({total_size_mb:.1f}MB) → ☁️ Cloud")
+        else:
+            st.caption(f"📊 {len(files)} files ({total_size_mb:.1f}MB) → 💾 Local")
     if files:
         if st.button("Upload", key=f"upload_btn_{chosen_date}"):
             # สร้าง Progress bar
@@ -605,7 +603,7 @@ if menu == "Home":
                         
                         lname = fname.lower()  # ใช้ชื่อไฟล์แทน path
                         if lname.endswith(".zip"):
-                            zip_bytes = file_bytes
+                            zip_bytes = io.BytesIO(file_bytes)
                             res = find_in_zip(zip_bytes)
                             # record results from zip
                             for kind, pack in res.items():
@@ -625,7 +623,7 @@ if menu == "Home":
                             kind = _kind(lname)
                             if not ext or not kind:
                                 raise ValueError("Unsupported file type or cannot infer kind")
-                            data = LOADERS[ext](file_bytes)
+                            data = LOADERS[ext](io.BytesIO(file_bytes))
                             if kind == "wason":
                                 st.session_state["wason_log"] = data
                                 st.session_state["wason_file"] = fname
