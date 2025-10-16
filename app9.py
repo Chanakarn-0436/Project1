@@ -236,11 +236,190 @@ def safe_copy(obj):
         return obj.copy()
     return obj
 
-# ====== SIDEBAR ======
-menu = st.sidebar.radio("Select Activity", [
-    "Home","Dashboard","CPU","FAN","MSU","Line board","Client board",
-    "Fiber Flapping","Loss between Core","Loss between EOL","Preset status","APO Remnant","Summary table & report"
-])
+# ====== SIDEBAR WITH STATUS INDICATORS ======
+def get_menu_status():
+    """ตรวจสอบสถานะของแต่ละ analyzer และคืนค่า dict ของ abnormal counts"""
+    status = {}
+    
+    # CPU
+    if "cpu_analyzer" in st.session_state:
+        analyzer = st.session_state["cpu_analyzer"]
+        if hasattr(analyzer, 'df_result'):
+            cpu_val = pd.to_numeric(analyzer.df_result.get("CPU utilization ratio"), errors="coerce")
+            cpu_pct = cpu_val * 100 if cpu_val.max() <= 1 else cpu_val
+            status["CPU"] = int((cpu_pct >= 60).sum())
+    
+    # FAN
+    if "fan_analyzer" in st.session_state:
+        analyzer = st.session_state["fan_analyzer"]
+        if hasattr(analyzer, 'df_result'):
+            rps = pd.to_numeric(analyzer.df_result.get("Value of Fan Rotate Speed(Rps)"), errors="coerce")
+            max_thresh = pd.to_numeric(analyzer.df_result.get("Maximum threshold"), errors="coerce")
+            status["FAN"] = int((rps > max_thresh).sum())
+    
+    # MSU
+    if "msu_analyzer" in st.session_state:
+        analyzer = st.session_state["msu_analyzer"]
+        if hasattr(analyzer, 'df_result'):
+            mA = pd.to_numeric(analyzer.df_result.get("Laser Bias Current(mA)"), errors="coerce")
+            status["MSU"] = int((mA > 1100).sum())
+    
+    # Line board
+    if "line_data" in st.session_state:
+        try:
+            df_line = st.session_state["line_data"].copy()
+            ref = pd.read_excel("data/Line.xlsx")
+            for df_ in (df_line, ref):
+                df_.columns = df_.columns.astype(str).str.strip().str.replace(r"\s+", " ", regex=True).str.replace("\u00a0", " ")
+            df_line["Mapping Format"] = df_line["ME"].astype(str).str.strip() + df_line["Measure Object"].astype(str).str.strip()
+            ref["Mapping"] = ref["Mapping"].astype(str).str.strip()
+            merged = pd.merge(df_line, ref[["Mapping", "Threshold", "Maximum threshold(out)", "Minimum threshold(out)", "Maximum threshold(in)", "Minimum threshold(in)"]], 
+                            left_on="Mapping Format", right_on="Mapping", how="inner")
+            ber = pd.to_numeric(merged.get("Instant BER After FEC"), errors="coerce")
+            thr = pd.to_numeric(merged.get("Threshold"), errors="coerce")
+            vin = pd.to_numeric(merged.get("Input Optical Power(dBm)"), errors="coerce")
+            vout = pd.to_numeric(merged.get("Output Optical Power (dBm)"), errors="coerce")
+            min_in = pd.to_numeric(merged.get("Minimum threshold(in)"), errors="coerce")
+            max_in = pd.to_numeric(merged.get("Maximum threshold(in)"), errors="coerce")
+            min_out = pd.to_numeric(merged.get("Minimum threshold(out)"), errors="coerce")
+            max_out = pd.to_numeric(merged.get("Maximum threshold(out)"), errors="coerce")
+            ber_abn = int(((thr.notna()) & (ber.notna()) & (ber > thr)).sum())
+            in_abn = int(((vin.notna() & min_in.notna() & max_in.notna()) & ((vin < min_in) | (vin > max_in))).sum())
+            out_abn = int(((vout.notna() & min_out.notna() & max_out.notna()) & ((vout < min_out) | (vout > max_out))).sum())
+            status["Line board"] = ber_abn + in_abn + out_abn
+        except:
+            pass
+    
+    # Client board
+    if "client_data" in st.session_state:
+        try:
+            df_client = st.session_state["client_data"].copy()
+            ref = pd.read_excel("data/Client.xlsx")
+            for df_ in (df_client, ref):
+                df_.columns = df_.columns.astype(str).str.strip().str.replace(r"\s+", " ", regex=True).str.replace("\u00a0", " ")
+            df_client["Mapping Format"] = df_client["ME"].astype(str).str.strip() + df_client["Measure Object"].astype(str).str.strip()
+            ref["Mapping"] = ref["Mapping"].astype(str).str.strip()
+            merged = pd.merge(df_client, ref[["Mapping", "Maximum threshold(out)", "Minimum threshold(out)", "Maximum threshold(in)", "Minimum threshold(in)"]], 
+                            left_on="Mapping Format", right_on="Mapping", how="inner")
+            vin = pd.to_numeric(merged.get("Input Optical Power(dBm)"), errors="coerce")
+            vout = pd.to_numeric(merged.get("Output Optical Power (dBm)"), errors="coerce")
+            mask_valid = (vin != -60) & (vout != -60)
+            vin = vin.where(mask_valid)
+            vout = vout.where(mask_valid)
+            min_in = pd.to_numeric(merged.get("Minimum threshold(in)"), errors="coerce")
+            max_in = pd.to_numeric(merged.get("Maximum threshold(in)"), errors="coerce")
+            min_out = pd.to_numeric(merged.get("Minimum threshold(out)"), errors="coerce")
+            max_out = pd.to_numeric(merged.get("Maximum threshold(out)"), errors="coerce")
+            in_abn = int(((vin.notna() & min_in.notna() & max_in.notna()) & ((vin < min_in) | (vin > max_in))).sum())
+            out_abn = int(((vout.notna() & min_out.notna() & max_out.notna()) & ((vout < min_out) | (vout > max_out))).sum())
+            status["Client board"] = in_abn + out_abn
+        except:
+            pass
+    
+    # Fiber Flapping
+    if "osc_data" in st.session_state and "fm_data" in st.session_state:
+        try:
+            from Fiberflapping_Analyzer import FiberflappingAnalyzer
+            analyzer_ff = FiberflappingAnalyzer(st.session_state["osc_data"].copy(), st.session_state["fm_data"].copy(), 2.0, "data/Flapping.xlsx")
+            df_opt = analyzer_ff.normalize_optical()
+            df_fm_norm, link_col = analyzer_ff.normalize_fm()
+            df_filtered = analyzer_ff.filter_optical_by_threshold(df_opt)
+            df_nomatch = analyzer_ff.find_nomatch(df_filtered, df_fm_norm, link_col)
+            status["Fiber Flapping"] = len(df_nomatch)
+        except:
+            pass
+    
+    # Loss between EOL
+    if "atten_data" in st.session_state:
+        try:
+            from EOL_Core_Analyzer import EOLAnalyzer
+            eol = EOLAnalyzer(None, st.session_state["atten_data"].copy(), "data/EOL.xlsx")
+            df_result = eol.build_result_df()
+            vals = pd.to_numeric(df_result.get("Loss current - Loss EOL"), errors="coerce")
+            remark = df_result.get("Remark").astype(str).fillna("")
+            abn_count = 0
+            for v, r in zip(vals, remark):
+                if r.strip() != "" or (pd.notna(v) and v >= 2.5):
+                    abn_count += 1
+            status["Loss between EOL"] = abn_count
+        except:
+            pass
+    
+    # Loss between Core
+    if "atten_data" in st.session_state:
+        try:
+            from EOL_Core_Analyzer import CoreAnalyzer
+            core = CoreAnalyzer(None, st.session_state["atten_data"].copy(), "data/EOL.xlsx")
+            df_res = core.build_result_df()
+            df_loss = core.calculate_loss_between_core(df_res)
+            abn_count = 0
+            for v in df_loss["Loss between core"].tolist():
+                if v == "--":
+                    abn_count += 1
+                elif pd.notna(v):
+                    try:
+                        if float(v) > 3:
+                            abn_count += 1
+                    except:
+                        pass
+            status["Loss between Core"] = abn_count
+        except:
+            pass
+    
+    # Preset status
+    if "preset_analyzer" in st.session_state:
+        try:
+            analyzer = st.session_state["preset_analyzer"]
+            df, summary = analyzer.to_dataframe()
+            status["Preset status"] = summary.get("total_abnormal_presets", 0)
+        except:
+            pass
+    
+    # APO Remnant
+    if "apo_analyzer" in st.session_state:
+        try:
+            analyzer = st.session_state["apo_analyzer"]
+            apo_count = sum(1 for x in analyzer.rendered if x[2])
+            status["APO Remnant"] = apo_count
+        except:
+            pass
+    
+    return status
+
+# สร้าง menu options พร้อม status indicator
+menu_options = ["Home", "Dashboard", "CPU", "FAN", "MSU", "Line board", "Client board",
+                "Fiber Flapping", "Loss between Core", "Loss between EOL", "Preset status", "APO Remnant", "Summary table & report"]
+
+status_dict = get_menu_status()
+
+# Custom CSS for colored menu items
+st.sidebar.markdown("""
+<style>
+    .stRadio > label {
+        font-weight: 500;
+    }
+    .menu-abnormal {
+        color: #ff4444 !important;
+        font-weight: bold !important;
+    }
+    .menu-normal {
+        color: #333333;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+
+
+# Create formatted menu labels
+formatted_labels = []
+for opt in menu_options:
+    if opt in status_dict and status_dict[opt] > 0:
+        formatted_labels.append(f"🔴 {opt} ({status_dict[opt]})")
+    else:
+        formatted_labels.append(opt)
+
+# แสดง menu
+menu = st.sidebar.radio("Select Activity", menu_options, format_func=lambda x: formatted_labels[menu_options.index(x)])
 
 
 # ====== หน้าแรก (Calendar Upload + Run Analysis + Delete) ======
@@ -711,15 +890,7 @@ elif menu == "Dashboard":
     if supabase.is_connected():
         st.success("✅ Connected to Supabase Database")
         
-        # Simple Dashboard Info
-        st.info("📊 Dashboard Overview")
-        st.markdown("""
-        ### 🚀 Getting Started
-        1. Go to **Home** to upload your ZIP files
-        2. Select files and click **Run Analysis**
-        3. Navigate to individual analysis pages (CPU, FAN, etc.)
-        4. Check **Summary table & report** for comprehensive results
-        """)
+     
         
        
 
