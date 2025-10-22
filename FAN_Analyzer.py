@@ -184,7 +184,7 @@ class FAN_Analyzer:
 
         # Style table
         styled_df, highlight_mask = self._style_dataframe(df_filtered.copy())
-        st.markdown("### FAN Performance (Main Table)")
+        st.markdown("### FAN Performance")
         st.dataframe(styled_df, use_container_width=True)
 
         # Status text
@@ -239,8 +239,6 @@ class FAN_Analyzer:
             self.df_abnormal = pd.concat([self.df_abnormal, df_abn], ignore_index=True)
             self.df_abnormal_by_type[ftype] = df_abn.copy()
 
-            st.write("DEBUG FAN_Analyzer df_abnormal_by_type keys:", list(self.df_abnormal_by_type.keys()))
-
             # highlight Value column
             def highlight_red(val):
                 try:
@@ -261,6 +259,19 @@ class FAN_Analyzer:
             df_sub = df_avg[df_avg["FanType"] == ftype].copy()
             if df_sub.empty:
                 continue
+
+            # เพิ่ม label ด้านบนของกราฟ
+            st.markdown(f"### {ftype} Boards (Average Fan Speed per Board)")
+            
+            # ตรวจสอบสถานะ Normal/Abnormal
+            has_abnormal = (df_sub["Avg Fan Speed (Rps)"] > th).any()
+            status_label = "FAN Performance Normal" if not has_abnormal else "FAN Performance Warning"
+            status_color = "green" if not has_abnormal else "red"
+            
+            st.markdown(
+                f"<div style='text-align:center; font-size:18px; font-weight:bold; color:{status_color}; margin-bottom:10px;'>{status_label}</div>",
+                unsafe_allow_html=True
+            )
 
             rows = len(df_sub)
             height_full = min(rows * 30, 2000)
@@ -283,7 +294,6 @@ class FAN_Analyzer:
             show_abnormal_from_main(df_result[df_result[self.COL_MOBJ].str.contains(ftype)], ftype)
             st.markdown("<br><br><br><br>", unsafe_allow_html=True)
 
-        st.write("DEBUG df_abnormal", self.df_abnormal)
         return df_result
     
     def prepare(self) -> pd.DataFrame:
@@ -338,5 +348,9 @@ class FAN_Analyzer:
             )
             if ab_mask.any():
                 self.df_abnormal_by_type[ftype] = df_sub.loc[ab_mask].copy()
+
+        # 8) ตั้งค่า session_state สำหรับ sidebar indicator
+        st.session_state["fan_abn_count"] = len(self.df_abnormal)
+        st.session_state["fan_status"] = "Abnormal" if not self.df_abnormal.empty else "Normal"
 
         return df_result

@@ -254,15 +254,25 @@ class FiberflappingAnalyzer:
             sel = df_nomatch[df_nomatch["Date"] == sel_day]
 
             st.markdown(f"#### Details for {sel_day}")
+            # สรุปจำนวน flapping ต่อ Site Name เรียงจากมากไปน้อย
+            if not sel.empty and "Site Name" in sel.columns:
+                counts = sel["Site Name"].value_counts().reset_index()
+                counts.columns = ["Site Name", "Count"]
+                # สร้างข้อความรวมในบรรทัดเดียว เช่น Wiang Sra_Z (2 links)
+                counts_str = " ".join([
+                    f"{r['Site Name']} ({r['Count']} link{'s' if r['Count'] > 1 else ''})"
+                    for _, r in counts.iterrows()
+                ])
+                st.markdown(counts_str)
+                
             if sel.empty:
                 st.info("No flapping records on this day")
             else:
                 # ✅ เลือกเฉพาะคอลัมน์ที่ต้องการ (ไม่มี Target ME, Date)
                 view_cols = [
-                    "Begin Time", "End Time", "ME", "Measure Object",
+                    "Begin Time", "End Time","Site Name", "ME", "ME IP", "Measure Object",
                     "Max Value of Input Optical Power(dBm)",
-                    "Min Value of Input Optical Power(dBm)",
-                    "Input Optical Power(dBm)", "Max - Min (dB)"
+                    "Min Value of Input Optical Power(dBm)", "Max - Min (dB)"
                 ]
                 view_cols = [c for c in view_cols if c in sel.columns]
                 sel = sel[view_cols]
@@ -280,7 +290,6 @@ class FiberflappingAnalyzer:
                         .format({
                             "Max Value of Input Optical Power(dBm)": "{:.2f}",
                             "Min Value of Input Optical Power(dBm)": "{:.2f}",
-                            "Input Optical Power(dBm)": "{:.2f}",
                             "Max - Min (dB)": "{:.2f}",
                         })
                     )
@@ -381,7 +390,11 @@ class FiberflappingAnalyzer:
             self.df_abnormal = pd.DataFrame()
             self.df_abnormal_by_type = {}
 
-        # 5) สร้าง daily tables สำหรับ export
+        # 5) ตั้งค่า session_state สำหรับ sidebar indicator
+        st.session_state["fiberflapping_abn_count"] = len(self.df_abnormal)
+        st.session_state["fiberflapping_status"] = "Abnormal" if not self.df_abnormal.empty else "Normal"
+
+        # 6) สร้าง daily tables สำหรับ export
         self.build_daily_tables(df_nomatch)
 
     @property

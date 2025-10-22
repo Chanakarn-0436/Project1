@@ -142,6 +142,9 @@ class Client_Analyzer:
     # -------------------- Step 5: Styling --------------------
     def _row_has_issue(self, r: pd.Series) -> bool:
         try:
+            # ตรวจสอบแถวที่มีค่า -60 ใน IN หรือ OUT ให้ถือว่าเป็น "Normal"
+            if r[self.COL_IN] == -60 or r[self.COL_OUT] == -60:
+                return False  # ไม่ถือเป็นปัญหาหรือ abnormal
             return (
                 (r[self.COL_OUT] > r[self.COL_MAX_OUT]) or (r[self.COL_OUT] < r[self.COL_MIN_OUT]) or
                 (r[self.COL_IN] > r[self.COL_MAX_IN]) or (r[self.COL_IN] < r[self.COL_MIN_IN])
@@ -229,8 +232,11 @@ class Client_Analyzer:
 
         # 7) เรนเดอร์ตาราง + แบนเนอร์
         st.markdown("### Client Performance")
+
+       
+        
         styled_df = self._style_dataframe(self.df_filtered.copy())
-        st.dataframe(styled_df, use_container_width=True, height=600)
+        st.dataframe(styled_df, use_container_width=True)
         self._render_status_banner(self.df_filtered)
 
     def _render_summary_kpi(self, df_view: pd.DataFrame) -> None:
@@ -290,22 +296,17 @@ class Client_Analyzer:
         ok_links = int(link_status["link_ok"].sum())
         fail_links = total_links - ok_links
 
-        # แสดง KPI แบบใหม่
-        st.markdown("#### Client Links OK")
-        cols = st.columns(4)
-        
+        # แสดง KPI แบบใหม่ในแถวเดียวกัน
+        cols = st.columns(3)  # เปลี่ยนเป็นแค่ 3 คอลัมน์
         with cols[0]:
-            st.metric("Client Links OK", f"{ok_links}", f"{fail_links} Fail")
-        
-        with cols[1]:
             st.metric("Input OK", f"{input_ok}", f"{input_fail} Fail")
         
-        with cols[2]:
+        with cols[1]:
             st.metric("Output OK", f"{output_ok}", f"{output_fail} Fail")
         
-        with cols[3]:
+        with cols[2]:
             st.metric("Total", f"{total_links}")
-        
+
         st.markdown("<br><br>", unsafe_allow_html=True)
 
     # =====================================================================
@@ -404,14 +405,14 @@ class Client_Analyzer:
                           fillcolor="blue", opacity=0.10, line_width=0)
 
         fig.add_trace(go.Scatter(
-            x=x_index, y=agg["avg_in"], mode="lines+markers+text",
+            x=x_index, y=agg["avg_in"], mode="markers+text",
             marker=dict(color=colors_in, size=8, symbol="circle"), line=dict(color="orange"),
             name="Input Power (avg)",
             text=[f"{v:.2f} dBm" for v in agg["avg_in"]],
             textposition="bottom center", textfont=dict(color="orange", size=12),
         ))
         fig.add_trace(go.Scatter(
-            x=x_index, y=agg["avg_out"], mode="lines+markers+text",
+            x=x_index, y=agg["avg_out"], mode="markers+text",
             marker=dict(color=colors_out, size=8, symbol="square"), line=dict(color="blue"),
             name="Output Power (avg)",
             text=[f"{v:.2f} dBm" for v in agg["avg_out"]],
@@ -556,14 +557,14 @@ class Client_Analyzer:
                           fillcolor="blue", opacity=0.10, line_width=0)
 
         fig.add_trace(go.Scatter(
-            x=x_index, y=agg["avg_in"], mode="lines+markers+text",
+            x=x_index, y=agg["avg_in"], mode="markers+text",
             marker=dict(color=colors_in, size=8, symbol="circle"), line=dict(color="orange"),
             name="Input Power (avg)",
             text=[f"{v:.2f} dBm" for v in agg["avg_in"]],
             textposition="bottom center", textfont=dict(color="orange", size=12),
         ))
         fig.add_trace(go.Scatter(
-            x=x_index, y=agg["avg_out"], mode="lines+markers+text",
+            x=x_index, y=agg["avg_out"], mode="markers+text",
             marker=dict(color=colors_out, size=8, symbol="square"), line=dict(color="blue"),
             name="Output Power (avg)",
             text=[f"{v:.2f} dBm" for v in agg["avg_out"]],
@@ -726,14 +727,14 @@ class Client_Analyzer:
         fig.add_hrect(y0=MAIN_MIN_OUT, y1=MAIN_MAX_OUT, fillcolor="blue", opacity=0.10, line_width=0)
 
         fig.add_trace(go.Scatter(
-            x=x_index, y=agg["avg_in"], mode="lines+markers+text",
+            x=x_index, y=agg["avg_in"], mode="markers+text",
             marker=dict(color=colors_in, size=8, symbol="circle"), line=dict(color="orange"),
             name="Input Power (avg)",
             text=[f"{v:.2f} dBm" if pd.notna(v) else "" for v in agg["avg_in"]],
             textposition="bottom center", textfont=dict(color="orange", size=12),
         ))
         fig.add_trace(go.Scatter(
-            x=x_index, y=agg["avg_out"], mode="lines+markers+text",
+            x=x_index, y=agg["avg_out"], mode="markers+text",
             marker=dict(color=colors_out, size=8, symbol="square"), line=dict(color="blue"),
             name="Output Power (avg)",
             text=[f"{v:.2f} dBm" if pd.notna(v) else "" for v in agg["avg_out"]],
@@ -847,3 +848,4 @@ class Client_Analyzer:
         else:
             st.session_state["client_status"] = "Abnormal"
         st.session_state["client_abn_count"] = len(self.df_abnormal)
+

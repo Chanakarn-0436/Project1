@@ -9,6 +9,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 import time
+import re
 
 # ====== IMPORT ANALYZERS ======
 from CPU_Analyzer import CPU_Analyzer
@@ -25,7 +26,6 @@ from Preset_Analyzer import (
 from APO_Analyzer import ApoRemnantAnalyzer
 from APO_Analyzer import apo_kpi
 # from viz import render_visualization, NetworkDashboardVisualizer  # Removed
-from table1 import SummaryTableReport
 from supabase_config import get_supabase
 
 
@@ -73,7 +73,7 @@ def save_file(upload_date: str, file, use_storage: bool = True):
         os.makedirs(os.path.dirname(stored_path), exist_ok=True)
         with open(stored_path, "wb") as f:
             f.write(file_content)
-
+    
     # บันทึก metadata ลง Supabase Database
     supabase.save_upload_record(upload_date, file.name, stored_path, storage_url)
 
@@ -155,12 +155,11 @@ KW = {
     "msu": ("msu",),
     "client": ("client", "client board"),
     "line":  ("line","line board"),       
-    "wason": ("wason","log"), 
+    "wason": ("wason","log","mobaxterm", "moba xterm", "moba"), 
     "osc": ("osc","osc optical"),      
     "fm":  ("fm","alarm","fault management"),
-    "atten": ("optical attenuation report", "optical_attenuation_report"),
-    "atten": ("optical attenuation report","optical attenuation"),
-    "preset": ("mobaxterm", "moba xterm", "moba"),
+    "atten": ("optical attenuation report", "optical_attenuation_report","optical attenuation"),
+    "preset": ("wason","log","mobaxterm", "moba xterm", "moba"),
 }
 
 LOADERS = {
@@ -175,7 +174,7 @@ def _ext(name: str) -> str:
 
 def _kind(name):
     n = name.lower()
-    hits = [k for k, kws in KW.items() if any(s in n for s in kws)]
+    hits = [k for k, kws in KW.items() if any(re.search(re.escape(s), n) for s in kws)]
 
     # ---- Priority ----
     if "wason" in hits:
@@ -236,221 +235,77 @@ def safe_copy(obj):
         return obj.copy()
     return obj
 
-# ====== SIDEBAR WITH STATUS INDICATORS ======
-def get_menu_status():
-    """ตรวจสอบสถานะของแต่ละ analyzer และคืนค่า dict ของ abnormal counts"""
-    status = {}
+# ====== SIDEBAR ======
+# ฟังก์ชันสำหรับสร้างเมนูพร้อมจุดสีแดง
+def create_menu_with_indicators():
+    menu_items = [
+        "Home", "Dashboard", "CPU", "FAN", "MSU", "Line board", "Client board",
+        "Fiber Flapping", "Loss between Core", "Loss between EOL", "Preset status", "APO Remnant", "Summary table & report"
+    ]
     
-    # CPU
-    if "cpu_analyzer" in st.session_state:
-        analyzer = st.session_state["cpu_analyzer"]
-        if hasattr(analyzer, 'df_result'):
-            cpu_val = pd.to_numeric(analyzer.df_result.get("CPU utilization ratio"), errors="coerce")
-            cpu_pct = cpu_val * 100 if cpu_val.max() <= 1 else cpu_val
-            status["CPU"] = int((cpu_pct >= 60).sum())
-    
-    # FAN
-    if "fan_analyzer" in st.session_state:
-        analyzer = st.session_state["fan_analyzer"]
-        if hasattr(analyzer, 'df_result'):
-            rps = pd.to_numeric(analyzer.df_result.get("Value of Fan Rotate Speed(Rps)"), errors="coerce")
-            max_thresh = pd.to_numeric(analyzer.df_result.get("Maximum threshold"), errors="coerce")
-            status["FAN"] = int((rps > max_thresh).sum())
-    
-    # MSU
-    if "msu_analyzer" in st.session_state:
-        analyzer = st.session_state["msu_analyzer"]
-        if hasattr(analyzer, 'df_result'):
-            mA = pd.to_numeric(analyzer.df_result.get("Laser Bias Current(mA)"), errors="coerce")
-            status["MSU"] = int((mA > 1100).sum())
-    
-    # Line board
-    if "line_data" in st.session_state:
-        try:
-            df_line = st.session_state["line_data"].copy()
-            ref = pd.read_excel("data/Line.xlsx")
-            for df_ in (df_line, ref):
-                df_.columns = df_.columns.astype(str).str.strip().str.replace(r"\s+", " ", regex=True).str.replace("\u00a0", " ")
-            df_line["Mapping Format"] = df_line["ME"].astype(str).str.strip() + df_line["Measure Object"].astype(str).str.strip()
-            ref["Mapping"] = ref["Mapping"].astype(str).str.strip()
-            merged = pd.merge(df_line, ref[["Mapping", "Threshold", "Maximum threshold(out)", "Minimum threshold(out)", "Maximum threshold(in)", "Minimum threshold(in)"]], 
-                            left_on="Mapping Format", right_on="Mapping", how="inner")
-            ber = pd.to_numeric(merged.get("Instant BER After FEC"), errors="coerce")
-            thr = pd.to_numeric(merged.get("Threshold"), errors="coerce")
-            vin = pd.to_numeric(merged.get("Input Optical Power(dBm)"), errors="coerce")
-            vout = pd.to_numeric(merged.get("Output Optical Power (dBm)"), errors="coerce")
-            min_in = pd.to_numeric(merged.get("Minimum threshold(in)"), errors="coerce")
-            max_in = pd.to_numeric(merged.get("Maximum threshold(in)"), errors="coerce")
-            min_out = pd.to_numeric(merged.get("Minimum threshold(out)"), errors="coerce")
-            max_out = pd.to_numeric(merged.get("Maximum threshold(out)"), errors="coerce")
-            ber_abn = int(((thr.notna()) & (ber.notna()) & (ber > thr)).sum())
-            in_abn = int(((vin.notna() & min_in.notna() & max_in.notna()) & ((vin < min_in) | (vin > max_in))).sum())
-            out_abn = int(((vout.notna() & min_out.notna() & max_out.notna()) & ((vout < min_out) | (vout > max_out))).sum())
-            status["Line board"] = ber_abn + in_abn + out_abn
-        except:
-            pass
-    
-    # Client board
-    if "client_data" in st.session_state:
-        try:
-            df_client = st.session_state["client_data"].copy()
-            ref = pd.read_excel("data/Client.xlsx")
-            for df_ in (df_client, ref):
-                df_.columns = df_.columns.astype(str).str.strip().str.replace(r"\s+", " ", regex=True).str.replace("\u00a0", " ")
-            df_client["Mapping Format"] = df_client["ME"].astype(str).str.strip() + df_client["Measure Object"].astype(str).str.strip()
-            ref["Mapping"] = ref["Mapping"].astype(str).str.strip()
-            merged = pd.merge(df_client, ref[["Mapping", "Maximum threshold(out)", "Minimum threshold(out)", "Maximum threshold(in)", "Minimum threshold(in)"]], 
-                            left_on="Mapping Format", right_on="Mapping", how="inner")
-            vin = pd.to_numeric(merged.get("Input Optical Power(dBm)"), errors="coerce")
-            vout = pd.to_numeric(merged.get("Output Optical Power (dBm)"), errors="coerce")
-            mask_valid = (vin != -60) & (vout != -60)
-            vin = vin.where(mask_valid)
-            vout = vout.where(mask_valid)
-            min_in = pd.to_numeric(merged.get("Minimum threshold(in)"), errors="coerce")
-            max_in = pd.to_numeric(merged.get("Maximum threshold(in)"), errors="coerce")
-            min_out = pd.to_numeric(merged.get("Minimum threshold(out)"), errors="coerce")
-            max_out = pd.to_numeric(merged.get("Maximum threshold(out)"), errors="coerce")
-            in_abn = int(((vin.notna() & min_in.notna() & max_in.notna()) & ((vin < min_in) | (vin > max_in))).sum())
-            out_abn = int(((vout.notna() & min_out.notna() & max_out.notna()) & ((vout < min_out) | (vout > max_out))).sum())
-            status["Client board"] = in_abn + out_abn
-        except:
-            pass
-    
-    # Fiber Flapping
-    if "osc_data" in st.session_state and "fm_data" in st.session_state:
-        try:
-            from Fiberflapping_Analyzer import FiberflappingAnalyzer
-            analyzer_ff = FiberflappingAnalyzer(st.session_state["osc_data"].copy(), st.session_state["fm_data"].copy(), 2.0, "data/Flapping.xlsx")
-            df_opt = analyzer_ff.normalize_optical()
-            df_fm_norm, link_col = analyzer_ff.normalize_fm()
-            df_filtered = analyzer_ff.filter_optical_by_threshold(df_opt)
-            df_nomatch = analyzer_ff.find_nomatch(df_filtered, df_fm_norm, link_col)
-            status["Fiber Flapping"] = len(df_nomatch)
-        except:
-            pass
-    
-    # Loss between EOL
-    if "atten_data" in st.session_state:
-        try:
-            from EOL_Core_Analyzer import EOLAnalyzer
-            eol = EOLAnalyzer(None, st.session_state["atten_data"].copy(), "data/EOL.xlsx")
-            df_result = eol.build_result_df()
-            vals = pd.to_numeric(df_result.get("Loss current - Loss EOL"), errors="coerce")
-            remark = df_result.get("Remark").astype(str).fillna("")
-            abn_count = 0
-            for v, r in zip(vals, remark):
-                if r.strip() != "" or (pd.notna(v) and v >= 2.5):
-                    abn_count += 1
-            status["Loss between EOL"] = abn_count
-        except:
-            pass
-    
-    # Loss between Core
-    if "atten_data" in st.session_state:
-        try:
-            from EOL_Core_Analyzer import CoreAnalyzer
-            core = CoreAnalyzer(None, st.session_state["atten_data"].copy(), "data/EOL.xlsx")
-            df_res = core.build_result_df()
-            df_loss = core.calculate_loss_between_core(df_res)
-            abn_count = 0
-            for v in df_loss["Loss between core"].tolist():
-                if v == "--":
-                    abn_count += 1
-                elif pd.notna(v):
-                    try:
-                        if float(v) > 3:
-                            abn_count += 1
-                    except:
-                        pass
-            status["Loss between Core"] = abn_count
-        except:
-            pass
-    
-    # Preset status
-    if "preset_analyzer" in st.session_state:
-        try:
-            analyzer = st.session_state["preset_analyzer"]
-            df, summary = analyzer.to_dataframe()
-            status["Preset status"] = summary.get("total_abnormal_presets", 0)
-        except:
-            pass
-    
-    # APO Remnant
-    if "apo_analyzer" in st.session_state:
-        try:
-            analyzer = st.session_state["apo_analyzer"]
-            apo_count = sum(1 for x in analyzer.rendered if x[2])
-            status["APO Remnant"] = apo_count
-        except:
-            pass
-    
-    return status
-
-# สร้าง menu options พร้อม status indicator
-menu_options = ["Home", "Dashboard", "CPU", "FAN", "MSU", "Line board", "Client board",
-                "Fiber Flapping", "Loss between Core", "Loss between EOL", "Preset status", "APO Remnant", "Summary table & report"]
-
-status_dict = get_menu_status()
-
-# Custom CSS for colored menu items
-st.sidebar.markdown("""
-<style>
-    .stRadio > label {
-        font-weight: 500;
+    # ตรวจสอบสถานะ abnormal สำหรับแต่ละเมนู
+    status_checks = {
+        "CPU": st.session_state.get("cpu_status", "Normal"),
+        "FAN": st.session_state.get("fan_status", "Normal"),
+        "MSU": st.session_state.get("msu_status", "Normal"),
+        "Line board": st.session_state.get("line_status", "Normal"),
+        "Client board": st.session_state.get("client_status", "Normal"),
+        "Fiber Flapping": st.session_state.get("fiberflapping_status", "Normal"),
+        "Loss between Core": st.session_state.get("core_status", "Normal"),
+        "Loss between EOL": st.session_state.get("eol_status", "Normal"),
+        "Preset status": st.session_state.get("preset_status", "Normal"),
+        "APO Remnant": st.session_state.get("apo_status", "Normal")
     }
-    .menu-abnormal {
-        color: #ff4444 !important;
-        font-weight: bold !important;
-    }
-    .menu-normal {
-        color: #333333;
-    }
-</style>
-""", unsafe_allow_html=True)
+    
+    # สร้างเมนูพร้อมจุดสีแดง
+    menu_with_indicators = []
+    for item in menu_items:
+        if item in status_checks and status_checks[item] == "Abnormal":
+            menu_with_indicators.append(f"🔴 {item}")
+        else:
+            menu_with_indicators.append(item)
+    
+    return menu_with_indicators
 
+# สร้างเมนู
+menu_options = create_menu_with_indicators()
+menu = st.sidebar.radio("Select Activity", menu_options)
 
-
-# Create formatted menu labels
-formatted_labels = []
-for opt in menu_options:
-    if opt in status_dict and status_dict[opt] > 0:
-        formatted_labels.append(f"🔴 {opt} ({status_dict[opt]})")
-    else:
-        formatted_labels.append(opt)
-
-# แสดง menu
-menu = st.sidebar.radio("Select Activity", menu_options, format_func=lambda x: formatted_labels[menu_options.index(x)])
+# แปลงกลับเป็นชื่อเมนูเดิม (ลบจุดสีแดงออก)
+original_menu = menu.replace("🔴 ", "") if "🔴 " in menu else menu
 
 
 # ====== หน้าแรก (Calendar Upload + Run Analysis + Delete) ======
-if menu == "Home":
+if original_menu == "Home":
     st.subheader("3BB Network Inspection Dashboard")
     st.markdown("#### Upload & Manage Files (ZIP, Excel, TXT) with Calendar")
 
     chosen_date = st.date_input("Select date", value=date.today())
     
-    # Storage option
-    use_storage = st.checkbox(
-        "☁️ Use Cloud Storage", 
-        value=True,
-        help="Store files in Supabase Storage (accessible from anywhere)"
-    )
-    
-    files = st.file_uploader(
-        "Upload files (ZIP / Excel / TXT)",
-        type=["zip", "xlsx", "xls", "xlsm", "txt"],
-        accept_multiple_files=True,
-        key=f"uploader_{chosen_date}"
-    )
-    
-    # แสดงข้อมูลไฟล์
-    if files:
-        total_size = sum(len(f.getbuffer()) for f in files)
-        total_size_mb = total_size / (1024 * 1024)
-        if use_storage:
-            st.caption(f"📊 {len(files)} files ({total_size_mb:.1f}MB) → ☁️ Cloud")
-        else:
-            st.caption(f"📊 {len(files)} files ({total_size_mb:.1f}MB) → 💾 Local")
+    # การตั้งค่าการเก็บไฟล์
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        files = st.file_uploader(
+            "Upload files (ZIP / Excel / TXT)",
+            type=["zip", "xlsx", "xls", "xlsm", "txt"],
+            accept_multiple_files=True,
+            key=f"uploader_{chosen_date}"
+        )
+    with col2:
+        use_storage = st.checkbox(
+            "☁️ Use Cloud Storage", 
+            value=True,
+            help="Store files in Supabase Storage (accessible from anywhere)"
+        )
+        
+        # แสดงข้อมูลไฟล์
+        if files:
+            total_size = sum(len(f.getbuffer()) for f in files)
+            total_size_mb = total_size / (1024 * 1024)
+            if use_storage:
+                st.caption(f"📊 {len(files)} files ({total_size_mb:.1f}MB) → ☁️ Cloud")
+            else:
+                st.caption(f"📊 {len(files)} files ({total_size_mb:.1f}MB) → 💾 Local")
     if files:
         if st.button("Upload", key=f"upload_btn_{chosen_date}"):
             # สร้าง Progress bar
@@ -604,7 +459,7 @@ if menu == "Home":
                         
                         lname = fname.lower()  # ใช้ชื่อไฟล์แทน path
                         if lname.endswith(".zip"):
-                            zip_bytes = io.BytesIO(file_bytes)
+                            zip_bytes = file_bytes
                             res = find_in_zip(zip_bytes)
                             # record results from zip
                             for kind, pack in res.items():
@@ -624,7 +479,7 @@ if menu == "Home":
                             kind = _kind(lname)
                             if not ext or not kind:
                                 raise ValueError("Unsupported file type or cannot infer kind")
-                            data = LOADERS[ext](io.BytesIO(file_bytes))
+                            data = LOADERS[ext](file_bytes)
                             if kind == "wason":
                                 st.session_state["wason_log"] = data
                                 st.session_state["wason_file"] = fname
@@ -684,7 +539,7 @@ if menu == "Home":
                     clear_status.text("❌ Clear operation failed")
 
 
-elif menu == "CPU":
+elif original_menu == "CPU":
     if st.session_state.get("cpu_data") is not None:
         # แสดง Progress bar สำหรับการวิเคราะห์ CPU
         cpu_progress = st.progress(0)
@@ -725,7 +580,7 @@ elif menu == "CPU":
         st.info("📁 Please upload a ZIP file that contains the CPU performance data.")
 
 
-elif menu == "FAN":
+elif original_menu == "FAN":
     if st.session_state.get("fan_data") is not None:
         try:
             df_ref = pd.read_excel("data/FAN.xlsx")
@@ -744,7 +599,7 @@ elif menu == "FAN":
         st.info("Please upload a FAN file to start the analysis")
 
 
-elif menu == "MSU":
+elif original_menu == "MSU":
     if st.session_state.get("msu_data") is not None:
         try:
             df_ref = pd.read_excel("data/MSU.xlsx")
@@ -761,7 +616,7 @@ elif menu == "MSU":
         st.info("Please upload an MSU file to start the analysis")
 
 
-elif menu == "Line board":
+elif original_menu == "Line board":
     st.markdown("### Line Cards Performance")
 
     df_line = st.session_state.get("line_data")      # ✅ DataFrame
@@ -793,7 +648,7 @@ elif menu == "Line board":
 
 
 
-elif menu == "Client board":
+elif original_menu == "Client board":
     st.markdown("### Client Board")
     if st.session_state.get("client_data") is not None:
         try:
@@ -814,7 +669,7 @@ elif menu == "Client board":
         st.info("Please upload a ZIP on 'Home' that contains a Client workbook")
 
 
-elif menu == "Fiber Flapping":
+elif original_menu == "Fiber Flapping":
     st.markdown("### Fiber Flapping (OSC + FM)")
 
     df_osc = st.session_state.get("osc_data")   # จาก ZIP: .xlsx → DataFrame
@@ -840,7 +695,7 @@ elif menu == "Fiber Flapping":
 
 
 
-elif menu == "Loss between EOL":
+elif original_menu == "Loss between EOL":
     st.markdown("### Loss between EOL")
     df_raw = st.session_state.get("atten_data")   # ใช้ atten_data ที่โหลดมา
     if df_raw is not None:
@@ -859,7 +714,7 @@ elif menu == "Loss between EOL":
         st.info("Please upload a ZIP file that contains the attenuation report.")
 
 
-elif menu == "Loss between Core":
+elif original_menu == "Loss between Core":
     st.markdown("### Loss between Core")
     df_raw = st.session_state.get("atten_data")   # ใช้ atten_data เหมือนกัน
     if df_raw is not None:
@@ -879,7 +734,7 @@ elif menu == "Loss between Core":
 
 
 
-elif menu == "Dashboard":
+elif original_menu == "Dashboard":
     st.markdown("# 🌐 Network Monitoring Dashboard")
     st.markdown("---")
     
@@ -1541,7 +1396,7 @@ elif menu == "Dashboard":
         st.error("❌ Cannot connect to Supabase Database")
         st.info("Please check your Supabase configuration in Streamlit secrets.")
 
-elif menu == "Preset status":
+elif original_menu == "Preset status":
     st.markdown("### Preset Status Analysis")
     if st.session_state.get("wason_log") is not None:
         try:
@@ -1582,7 +1437,7 @@ elif menu == "Preset status":
     else:
         st.info("📁 Please upload a ZIP file that contains the WASON log data.")
 
-elif menu == "APO Remnant":
+elif original_menu == "APO Remnant":
     st.markdown("### APO Remnant Analysis")
     if st.session_state.get("wason_log") is not None:
         try:
@@ -1623,6 +1478,11 @@ elif menu == "APO Remnant":
     else:
         st.info("📁 Please upload a ZIP file that contains the WASON log data.")
 
-elif menu == "Summary table & report":
-    summary = SummaryTableReport()
-    summary.render()
+elif original_menu == "Summary table & report":
+    try:
+        from table1 import SummaryTableReport
+        summary = SummaryTableReport()
+        summary.render()
+    except Exception as e:
+        st.error(f"Failed to load Summary Table module: {e}")
+        st.info("Tip: Try clearing __pycache__ or reloading the app if the problem persists.")

@@ -142,6 +142,22 @@ class PresetStatusAnalyzer:
         fails  = int((df["Verdict"] == "FAIL").sum())
         self.df = df
         self.summary = {"total": len(df), "passes": passes, "fails": fails}
+       
+        # ---------------------------
+        # ปริ้นเฉพาะ Abnormal (FAIL)
+        # ---------------------------
+        abnormal_df = df[df["Verdict"] == "FAIL"]
+        if not abnormal_df.empty:
+            for _, row in abnormal_df.iterrows():
+                call_id = row.get("Call", "-")
+                ip      = row.get("IP", "")
+                reason  = row.get("Status", "")
+                pr_raw  = row.get("Preroute", "")
+                pr      = "-" if pd.isna(pr_raw) or pr_raw == "" else pr_raw
+                print(f"Call {call_id} | IP: {ip} | Preroute: {pr} | Reason: {reason}")
+        else:
+            print("✅ No abnormal preset detected.")
+
         return self.df, self.summary
 
     @staticmethod
@@ -187,6 +203,10 @@ def render_preset_ui(df: pd.DataFrame, summary: Dict[str, int], only_abnormal_ke
     col1.metric("Preset Success", f"{passes}")
     col2.metric("Preset Abnormal", f"{fails}")
     col3.metric("Total Preset Calls", f"{total}")
+    
+    # ตั้งค่า session_state สำหรับ sidebar indicator
+    st.session_state["preset_abn_count"] = fails
+    st.session_state["preset_status"] = "Abnormal" if fails > 0 else "Normal"
 
 
 
@@ -209,7 +229,11 @@ def render_preset_ui(df: pd.DataFrame, summary: Dict[str, int], only_abnormal_ke
 
     # Table
     view = PresetStatusAnalyzer.view_only(df, st.session_state[only_abnormal_key])
-    st.dataframe(view.drop(columns=["Raw", "Verdict"], errors="ignore"), use_container_width=True, hide_index=True)
+    st.dataframe(
+        view.drop(columns=["Raw", "Verdict"], errors="ignore"),
+        width="stretch",     # ✅ แทน use_container_width=True
+        hide_index=True
+    )
 
     # Per-call cards
     for _, r in view.iterrows():

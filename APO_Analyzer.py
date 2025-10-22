@@ -44,8 +44,9 @@ class ApoRemnantAnalyzer:
         self.re_apop_begin = re.compile(r'^\[APOPLUS\]\s*===\s*show all och-inst\s*===', re.I)
         self.re_apop_top   = re.compile(r'^\[APOPLUS\]\s*TopNeIp\s*:\s*([0-9\.]+)')
         self.re_apop_end   = re.compile(r'^\[APOPLUS\]ushell command finished\b', re.I)
-        self.re_apop_row   = re.compile(
-            r"^\[APOPLUS\]\d+\s+0x[0-9a-fA-F]+\s+0x[0-9a-fA-F]+\s+(0x[0-9a-fA-F]{8})\s+(0x[0-9a-fA-F]{8}).*(HEAD_[A-Z_]+)"
+        self.re_apop_row = re.compile(
+            r"^\[APOPLUS\]\d+\s+0x[0-9a-fA-F]+\s+0x[0-9a-fA-F]+\s+(0x[0-9a-fA-F]{8})\s+(0x[0-9a-fA-F]{8}).*\b(HEAD[A-Z_]+)\b",
+            re.I
         )
 
         # outputs
@@ -75,6 +76,16 @@ class ApoRemnantAnalyzer:
         call_id = int(call_id_str)
         conn_hex = f"0x{int(conn_no_str):08x}".lower()
         return first_ip, call_id, conn_hex
+    
+    @staticmethod
+    def _hex_to_ip(hex_str: str) -> str:
+        """แปลงเลข เช่น 0x1e0a6e06 → 30.10.110.6"""
+        try:
+            h = hex_str.replace("0x", "").zfill(8)
+            parts = [str(int(h[i:i+2], 16)) for i in range(0, 8, 2)]
+            return ".".join(parts)
+        except Exception:
+            return hex_str    
 
     def _ensure_bucket(self, ip: str):
         if ip not in self.per_site:
@@ -166,7 +177,16 @@ class ApoRemnantAnalyzer:
         return f"0x{(call_id << 24):08x}" if scheme == "shifted" else f"0x{call_id:08x}"
 
 
+    # --- ขั้นที่ 2: analyze ---
     def analyze(self):
+        """
+        วิเคราะห์ความสอดคล้องระหว่าง WASON กับ APOP:
+        - แก้ bug เดิมที่ใช้ set เทียบตรง ๆ แล้วเน้นแดงผิด
+        - เพิ่ม .strip().lower() เพื่อ normalize ค่า
+        - เปลี่ยน logic เทียบ Case 3 ให้ไม่แดงทั้งคู่เกินเหตุ
+        """
+        from collections import Counter
+
         self.rendered.clear()
 
         for wip, bucket in self.per_site.items():
@@ -174,15 +194,32 @@ class ApoRemnantAnalyzer:
             wason_snippet = "\n".join(bucket.wason_lines)
             apop_snippet  = "\n".join(bucket.apop_lines)
 
-            # --- index APOP: เอาเฉพาะ HEAD_DETECT_WAITING ---
+            # -----------------------------------
+            # ✅ Reset ตัวแปรใหม่ต่อ site
+            # -----------------------------------
             apop_by_traffic: Dict[str, Dict[str, str]] = {}
-            valid_states = {"HEAD_DETECT_WAITING", "HEAD_ERROR_DETECTING"}
+            to_red_apop: Set[str] = set()
+            to_red_wason: Set[str] = set()
+
+            # -----------------------------------
+            # ✅ Index APOP: รับเฉพาะ state ที่ต้องเทียบ
+            # -----------------------------------
+            valid_states = {
+                "HEAD_DETECT_WAITING",
+                "HEAD_POWER_ADJUSTING",
+                "HEAD_ERROR_DETECTING",
+            }
+
             for t, c, state, ln_ap in bucket.apop_rows:
-                if state in valid_states:
+                s = (state or "").upper().strip()
+                t = t.strip().lower()
+                c = c.strip().lower()
+                if s in valid_states:
                     apop_by_traffic.setdefault(t, {})[c] = ln_ap
 
-
-            # --- collect WASON calls ---
+            # -----------------------------------
+            # ✅ Collect WASON calls ของ site ปัจจุบัน
+            # -----------------------------------
             wason_calls: List[Tuple[int, str, str]] = []  # (call_id, conn_hex, raw_line)
             for ln_w in bucket.wason_lines:
                 if not self.re_wason_conn.search(ln_w):
@@ -192,12 +229,17 @@ class ApoRemnantAnalyzer:
                     continue
                 first_ip, call_id, c_hex = parsed
                 if first_ip == wip:
+                    c_hex = c_hex.strip().lower()
                     wason_calls.append((call_id, c_hex, ln_w))
 
+            # ถ้าไม่มี WASON → ข้าม
             if not wason_calls:
                 self.rendered.append((wip, (site_name, wason_snippet, apop_snippet, set(), set()), False, site_name))
                 continue
 
+            # -----------------------------------
+            # ✅ scheme = direct (ZTE OTN)
+            # -----------------------------------
             # --- เลือก scheme ---
             def score_scheme(scheme: str) -> int:
                 return sum(self._traffic_hex_from(call_id, scheme) in apop_by_traffic for call_id, _c, _l in wason_calls)
@@ -210,38 +252,108 @@ class ApoRemnantAnalyzer:
             else:
                 scheme = "shifted" if score_shifted > score_direct else "direct"
 
-            # --- compare Conn แบบ symmetric ---
-            to_red_apop: Set[str] = set()
-            to_red_wason: Set[str] = set()
-            seen_apop_keys: Set[Tuple[str, str]] = set()  # (traffic_hex, conn_hex) ที่ WASON เช็คแล้ว
 
-            for call_id, c_hex, ln_wason in wason_calls:
-                t_hex = self._traffic_hex_from(call_id, scheme)
-                apop_conns = apop_by_traffic.get(t_hex, {})
+            # -----------------------------------
+            # ✅ สร้างเซ็ตคู่ (TrafficID, ConnNo)
+            # -----------------------------------
+            wason_pairs = [
+                (self._traffic_hex_from(call_id, scheme).strip().lower(), c_hex)
+                for call_id, c_hex, _ in wason_calls
+            ]
+            apop_pairs = [
+                (t_hex.strip().lower(), c_hex.strip().lower())
+                for t_hex, conns in apop_by_traffic.items()
+                for c_hex in conns.keys()
+            ]
 
-                if c_hex in apop_conns:
-                    # ✅ match → ไม่ทำอะไร
-                    seen_apop_keys.add((t_hex, c_hex))
-                else:
-                    # ❌ mismatch → แดงทั้งคู่
-                    to_red_wason.add(ln_wason)
-                    for ap_ln in apop_conns.values():
-                        to_red_apop.add(ap_ln)
+            # ✅ ใช้ Counter() เพื่อรักษาจำนวนซ้ำ
+            wason_counter = Counter(wason_pairs)
+            apop_counter  = Counter(apop_pairs)
 
-            # --- orphan APOP (Conn ที่มีใน APOP แต่ไม่เจอใน WASON เลย) ---
-            for t_hex, conns in apop_by_traffic.items():
-                for c_hex, ap_ln in conns.items():
-                    if (t_hex, c_hex) not in seen_apop_keys:
-                        to_red_apop.add(ap_ln)
-                        # ✅ symmetric: mark WASON ทั้งหมดที่ traffic ตรงนี้
-                        for call_id, c_hex_w, ln_w in wason_calls:
-                            if self._traffic_hex_from(call_id, scheme) == t_hex:
-                                to_red_wason.add(ln_w)
+            # -----------------------------------
+            # ✅ เปรียบเทียบตามกติกา
+            # -----------------------------------
 
-            has_mismatch = bool(to_red_apop or to_red_wason)
+            # Case 1️⃣ ตรงหมด → ไม่แดงเลย
+            if wason_counter == apop_counter:
+                has_mismatch = False
+
+            # Case 2️⃣ APOP เกิน → แดงเฉพาะฝั่ง APOP
+            elif sum(apop_counter.values()) > sum(wason_counter.values()):
+                extra = apop_counter - wason_counter
+                for p in extra:
+                    ln = apop_by_traffic.get(p[0], {}).get(p[1])
+                    if ln:
+                        to_red_apop.add(ln)
+                has_mismatch = bool(to_red_apop)
+
+            # Case 3️⃣ จำนวนเท่ากันแต่ไม่ตรง → แดงเฉพาะคู่ที่ mismatch จริง
+            elif sum(apop_counter.values()) == sum(wason_counter.values()) and apop_counter != wason_counter:
+                mismatch_pairs = set(apop_counter.keys()) ^ set(wason_counter.keys())
+                for p in mismatch_pairs:
+                    if p in wason_pairs:
+                        idxs = [
+                                    ln for call_id, c_hex_w, ln in wason_calls
+                                    if (self._traffic_hex_from(call_id, scheme).strip().lower(), c_hex_w.strip().lower()) == p
+                                ]
+                        to_red_wason.update(idxs)
+                    if p[0] in apop_by_traffic and p[1] in apop_by_traffic[p[0]]:
+                        to_red_apop.add(apop_by_traffic[p[0]][p[1]])
+                has_mismatch = bool(to_red_apop or to_red_wason)
+
+            # Case 4️⃣ WASON มีมากกว่า (APOP ขาด) → ไม่แดง
+            else:
+                has_mismatch = False
+
+            # -----------------------------------
+            # ✅ สรุปต่อ site
+            # -----------------------------------
             self.rendered.append(
-                (wip, (site_name, wason_snippet, apop_snippet, to_red_wason, to_red_apop), has_mismatch, site_name)
+                (
+                    wip,
+                    (site_name, wason_snippet, apop_snippet, set(to_red_wason), set(to_red_apop)),
+                    has_mismatch,
+                    site_name,
+                )
             )
+        for wip, (site_name, _ws, _ap, _red_w, red_a), has_mismatch, _sort_name in self.rendered:
+            if has_mismatch and red_a:
+                print(f"\nSite: {site_name} ({wip})")
+
+                # เก็บกลุ่มเส้นทางใน dict: { (src_label, dst_label): [lines] }
+                grouped_lines = {}
+                for ln in sorted(red_a):
+                    m = re.search(
+                        r"\[APOPLUS\](\d+)\s+(0x[0-9a-fA-F]{8})\s+(0x[0-9a-fA-F]{8})\s+(0x[0-9a-fA-F]{8})\s+(0x[0-9a-fA-F]{8})\s+(0x[0-9a-fA-F]{8})\s+(0x[0-9a-fA-F]{8})\s+(\S+)",
+                        ln
+                    )
+                    if not m:
+                        continue
+
+                    no, src_hex, dst_hex, traffic, connno, connattr, conntype, state = m.groups()
+
+                    # --- แปลง hex → IP ---
+                    src_ip = self._hex_to_ip(src_hex)
+                    dst_ip = self._hex_to_ip(dst_hex)
+                    src_site = self.site_map.get(src_ip, "")
+                    dst_site = self.site_map.get(dst_ip, "")
+
+                    src_label = f"{src_site} ({src_ip})" if src_site else src_ip
+                    dst_label = f"{dst_site} ({dst_ip})" if dst_site else dst_ip
+
+                    grouped_lines.setdefault((src_label, dst_label), []).append(
+                        (no, src_hex, dst_hex, traffic, connno, connattr, conntype, state)
+                    )
+
+                # ---- พิมพ์แบบกลุ่มต่อกลุ่ม ----
+                for i, ((src_label, dst_label), lines) in enumerate(grouped_lines.items(), start=1):
+                    print(f"   {src_label} → {dst_label}")
+                    print("    [APOPLUS]No    SourceNodeID      DestNodeID      TrafficID          ConnNo        ConnAttr       ConnType                     State")
+                    for no, src_hex, dst_hex, traffic, connno, connattr, conntype, state in lines:
+                        print(f"    [APOPLUS]{no:<4}   {src_hex:<16} {dst_hex:<16} {traffic:<16} {connno:<14} {connattr:<14} {conntype:<14} {state}")
+
+                    # ✅ เว้นบรรทัดหลังแต่ละกลุ่มเพื่อแยกตาราง
+                    print()
 
         return self.rendered
 
@@ -346,6 +458,10 @@ def apo_kpi(rendered: list[tuple]):
     total_sites = len(rendered)
     apo_sites   = sum(1 for x in rendered if x[2])   # has_mismatch = True
     noapo_sites = sum(1 for x in rendered if not x[2])  # has_mismatch = False
+
+    # ตั้งค่า session_state สำหรับ sidebar indicator
+    st.session_state["apo_abn_count"] = apo_sites
+    st.session_state["apo_status"] = "Abnormal" if apo_sites > 0 else "Normal"
 
     # ---------- KPI Cards ----------
     st.markdown("### APO Remnant Status Overview")

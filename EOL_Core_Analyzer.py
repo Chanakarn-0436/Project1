@@ -81,23 +81,30 @@ class LossAnalyzer:
         return color
 
     @staticmethod
-    def draw_color_legend():
-        st.markdown("""
-            <div style='display: flex; justify-content: center; align-items: center; gap: 16px; margin-bottom: 1rem'>
-                <div style='display: flex; justify-content: center; align-items: center; gap: 8px'>
-                    <div style='background-color: #ff4d4d; width: 24px; height: 24px; border-radius: 8px;'></div>
-                    <div style='text-align: center; color: #ff4d4d; font-size: 24px; font-weight: bold;'>
-                        Loss between EOL Warning 
-                    </div>
-                </div>
-                <div style='display: flex; justify-content: center; align-items: center; gap: 8px'>
-                    <div style='background-color: #d6b346; width: 24px; height: 24px; border-radius: 8px;'></div>
-                    <div style='text-align: center; color: #d6b346; font-size: 24px; font-weight: bold;'>
-                        Fiber break occurs
-                    </div>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
+    def draw_color_legend(has_fiber_break: bool = False):
+        # สร้าง legend แบบ dynamic ตามว่ามี fiber break หรือไม่
+        warning_legend = """<div style='display: flex; justify-content: center; align-items: center; gap: 8px'>
+                <div style='background-color: #ff4d4d; width: 24px; height: 24px; border-radius: 8px;'></div>
+                <div style='text-align: center; color: #ff4d4d; font-size: 24px; font-weight: bold;'>Loss between EOL Warning</div>
+            </div>"""
+        
+        fiber_break_legend = """<div style='display: flex; justify-content: center; align-items: center; gap: 8px'>
+                <div style='background-color: #d6b346; width: 24px; height: 24px; border-radius: 8px;'></div>
+                <div style='text-align: center; color: #d6b346; font-size: 24px; font-weight: bold;'>Fiber break occurs</div>
+            </div>"""
+        
+        # รวม legend ตามเงื่อนไข
+        if has_fiber_break:
+            legend_html = f"""<div style='display: flex; justify-content: center; align-items: center; gap: 16px; margin-bottom: 1rem'>
+                {warning_legend}
+                {fiber_break_legend}
+            </div>"""
+        else:
+            legend_html = f"""<div style='display: flex; justify-content: center; align-items: center; gap: 16px; margin-bottom: 1rem'>
+                {warning_legend}
+            </div>"""
+        
+        st.markdown(legend_html, unsafe_allow_html=True)
 
     @staticmethod
     def extract_eol_ref(df_ref: pd.DataFrame) -> pd.DataFrame:
@@ -192,7 +199,10 @@ class EOLAnalyzer(LossAnalyzer):
             # ---------- ตารางหลัก ----------
             if show_table:
                 st.dataframe(df_filtered.style.apply(self.isDiffError, axis=1), hide_index=True)
-                self.draw_color_legend()
+                
+                # ตรวจสอบว่ามี fiber break หรือไม่
+                has_fiber_break = any(str(row.get("Remark", "")).strip() != "" for _, row in df_filtered.iterrows())
+                self.draw_color_legend(has_fiber_break)
 
             # ... (ส่วน KPI, Donut, Problem list เหมือนเดิม)
 
@@ -215,7 +225,12 @@ class EOLAnalyzer(LossAnalyzer):
             normal_cnt = int(summary_counts.get("EOL Normal", 0))
             excess_cnt = int(summary_counts.get("EOL Excess Loss", 0))
             break_cnt  = int(summary_counts.get("EOL Fiber Break", 0))
-            total_cnt  = normal_cnt + excess_cnt + break_cnt  
+            total_cnt  = normal_cnt + excess_cnt + break_cnt
+            
+            # ตั้งค่า session_state สำหรับ sidebar indicator
+            abnormal_cnt = excess_cnt + break_cnt
+            st.session_state["eol_abn_count"] = abnormal_cnt
+            st.session_state["eol_status"] = "Abnormal" if abnormal_cnt > 0 else "Normal"  
 
             st.markdown("### EOL Link Status Overview")
             col1, col2, col3, col4 = st.columns(4)
@@ -423,19 +438,31 @@ class CoreAnalyzer(EOLAnalyzer):
                 html = self.build_loss_table(link_names, loss_values)
                 st.markdown(html, unsafe_allow_html=True)
 
-                # Legend
-                st.markdown("""
-                    <div style='display: flex; justify-content: center; align-items: center; gap: 32px; margin: 1rem 0;'>
-                        <div style='display: flex; align-items: center; gap: 8px'>
-                            <div style='background-color: #ff4d4d; width: 24px; height: 24px; border-radius: 4px;'></div>
-                            <div style='color: #ff4d4d; font-size: 24px; font-weight: bold;'>Loss between Core Warning</div>
-                        </div>
-                        <div style='display: flex; align-items: center; gap: 8px'>
-                            <div style='background-color: #d6b346; width: 24px; height: 24px; border-radius: 4px;'></div>
-                            <div style='color: #d6b346; font-size: 24px; font-weight: bold;'>Fiber break occurs</div>
-                        </div>
-                    </div>
-                """, unsafe_allow_html=True)
+                # ตรวจสอบว่ามี fiber break หรือไม่ (ค่า "--" หมายถึง fiber break)
+                has_fiber_break = any(v == "--" for v in loss_values)
+                
+                # Legend แบบ dynamic
+                warning_legend = """<div style='display: flex; align-items: center; gap: 8px'>
+                        <div style='background-color: #ff4d4d; width: 24px; height: 24px; border-radius: 4px;'></div>
+                        <div style='color: #ff4d4d; font-size: 24px; font-weight: bold;'>Loss between Core Warning</div>
+                    </div>"""
+                
+                fiber_break_legend = """<div style='display: flex; align-items: center; gap: 8px'>
+                        <div style='background-color: #d6b346; width: 24px; height: 24px; border-radius: 4px;'></div>
+                        <div style='color: #d6b346; font-size: 24px; font-weight: bold;'>Fiber break occurs</div>
+                    </div>"""
+                
+                if has_fiber_break:
+                    legend_html = f"""<div style='display: flex; justify-content: center; align-items: center; gap: 32px; margin: 1rem 0;'>
+                        {warning_legend}
+                        {fiber_break_legend}
+                    </div>"""
+                else:
+                    legend_html = f"""<div style='display: flex; justify-content: center; align-items: center; gap: 32px; margin: 1rem 0;'>
+                        {warning_legend}
+                    </div>"""
+                
+                st.markdown(legend_html, unsafe_allow_html=True)
 
             # ---------- KPI ----------
             status_list = []
@@ -453,7 +480,12 @@ class CoreAnalyzer(EOLAnalyzer):
             ok_cnt    = int(summary_counts.get("Core Normal", 0))
             notok_cnt = int(summary_counts.get("Core Loss Excess", 0))
             fiber_cnt = int(summary_counts.get("Core Fiber Break", 0))
-            total_cnt = ok_cnt + notok_cnt + fiber_cnt  
+            total_cnt = ok_cnt + notok_cnt + fiber_cnt
+            
+            # ตั้งค่า session_state สำหรับ sidebar indicator
+            abnormal_cnt = notok_cnt + fiber_cnt
+            st.session_state["core_abn_count"] = abnormal_cnt
+            st.session_state["core_status"] = "Abnormal" if abnormal_cnt > 0 else "Normal"  
 
             st.markdown("### Core Link Status Overview")
             col1, col2, col3, col4 = st.columns(4)

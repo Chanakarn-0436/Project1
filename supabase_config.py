@@ -47,9 +47,24 @@ class SupabaseManager:
             Public URL ของไฟล์ หรือ None ถ้าไม่สำเร็จ
         """
         if not self.is_connected():
+            print("❌ Supabase not connected")
             return None
         
         try:
+            print(f"🔄 Uploading to storage: {file_path} ({len(file_bytes)} bytes)")
+            
+            # ตรวจสอบว่า bucket มีอยู่หรือไม่
+            try:
+                buckets = self.supabase.storage.list_buckets()
+                bucket_names = [b.name for b in buckets]
+                print(f"📦 Available buckets: {bucket_names}")
+                
+                if self.storage_bucket not in bucket_names:
+                    print(f"❌ Bucket '{self.storage_bucket}' not found!")
+                    return None
+            except Exception as e:
+                print(f"⚠️ Could not list buckets: {e}")
+            
             # อัปโหลดไฟล์
             result = self.supabase.storage.from_(self.storage_bucket).upload(
                 path=file_path,
@@ -57,12 +72,15 @@ class SupabaseManager:
                 file_options={"content-type": "application/octet-stream"}
             )
             
+            print(f"📤 Upload result: {result}")
+            
             # ดึง public URL
             public_url = self.supabase.storage.from_(self.storage_bucket).get_public_url(file_path)
+            print(f"🔗 Public URL: {public_url}")
             return public_url
             
         except Exception as e:
-            print(f"Storage upload error: {e}")
+            print(f"❌ Storage upload error: {e}")
             return None
     
     def download_from_storage(self, file_path: str) -> Optional[bytes]:

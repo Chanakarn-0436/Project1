@@ -162,11 +162,18 @@ class Line_Analyzer:
         col_ber = "Instant BER After FEC"
 
         # ✅ บังคับคอลัมน์ตัวเลขทั้งหมดให้เป็น float (กัน error format 'E')
-        num_cols = [col_ber, "Threshold", self.col_out, self.col_in,
+        num_cols = [col_ber, self.col_out, self.col_in,
                     self.col_max_out, self.col_min_out, self.col_max_in, self.col_min_in]
         for c in num_cols:
             if c in df_view.columns:
                 df_view[c] = pd.to_numeric(df_view[c], errors="coerce")
+        
+        # ✅ Threshold แยกต่างหาก - เก็บ None ไว้
+        if "Threshold" in df_view.columns:
+            # แปลงเฉพาะค่าที่ไม่ใช่ None/NaN
+            df_view["Threshold"] = df_view["Threshold"].apply(
+                lambda x: pd.to_numeric(x, errors="coerce") if pd.notna(x) and str(x).strip() != "" else x
+            )
 
         def _has_issue_row(r):
             return self._row_has_issue(
@@ -184,11 +191,11 @@ class Line_Analyzer:
                 for _ in r
             ], axis=1)
 
-            # 🔴 ไฮไลต์ BER abnormal
+            # 🔴 ไฮไลต์ BER abnormal (รวม None แต่ต้องมี Threshold)
             .apply(lambda _: [
                 'background-color:#ff4d4d; color:white'
-                if (pd.notna(v) and v > 0) else ''
-                for v in df_view[col_ber]
+                if (pd.notna(t) and (pd.isna(v) or (pd.notna(v) and v > 0))) else ''
+                for v, t in zip(df_view[col_ber], df_view.get("Threshold", []))
             ], subset=[col_ber] if col_ber in df_view.columns else [])
 
             # 🔴 ไฮไลต์ Output abnormal
@@ -230,7 +237,7 @@ class Line_Analyzer:
                 self.col_min_in: "{:.4f}",
                 "Instant BER After FEC": "{:.2E}",   # 👈 ใช้ .2E ปลอดภัยชัวร์
                 "Threshold": "{:.2E}",               # 👈
-            })
+            }, na_rep="None")
         )
         return styled
 
@@ -371,6 +378,111 @@ class Line_Analyzer:
         self._render_ber_donut(df_lines)                   # BER Donut
         self._render_line_charts(df_lines)                 # Line Chart
         self._render_preset_kpi_and_drilldown(df_lines)    # Preset KPI + Drill-down
+        
+        # ---------- Problem Call IDs (ใช้ข้อมูลจากตารางหลัก) ----------
+        self._render_problem_call_ids(df_filtered)         # Problem Call IDs
+
+        # ---------- Problem Call IDs (ใช้ข้อมูลจากตารางหลัก) ----------
+    def _render_problem_call_ids(self, df_view: pd.DataFrame) -> None:
+        """แสดง Problem Call IDs ใช้ข้อมูลจากตารางหลัก"""
+        # BER abnormal - ใช้เงื่อนไขเดียวกับตารางหลัก: v > 0 หรือ None
+        # แต่ต้องมี Threshold ด้วย
+        ber_val = pd.to_numeric(df_view.get("Instant BER After FEC", pd.Series()), errors="coerce")
+        thr_val = pd.to_numeric(df_view.get("Threshold", pd.Series()), errors="coerce")
+        mask_ber = ((ber_val > 0) | ber_val.isna()) & thr_val.notna()
+        
+        # Input abnormal - ใช้คอลัมน์เดียวกับตารางหลัก
+        vin = pd.to_numeric(df_view.get(self.col_in, pd.Series()), errors="coerce")
+        min_in = pd.to_numeric(df_view.get(self.col_min_in, pd.Series()), errors="coerce")
+        max_in = pd.to_numeric(df_view.get(self.col_max_in, pd.Series()), errors="coerce")
+        mask_input = (vin.notna() & min_in.notna() & max_in.notna() & ((vin < min_in) | (vin > max_in)))
+        
+        # Output abnormal - ใช้คอลัมน์เดียวกับตารางหลัก
+        vout = pd.to_numeric(df_view.get(self.col_out, pd.Series()), errors="coerce")
+        min_out = pd.to_numeric(df_view.get(self.col_min_out, pd.Series()), errors="coerce")
+        max_out = pd.to_numeric(df_view.get(self.col_max_out, pd.Series()), errors="coerce")
+        mask_output = (vout.notna() & min_out.notna() & max_out.notna() & ((vout < min_out) | (vout > max_out)))
+        
+        # รวมทุกเงื่อนไข
+        mask_any_abnormal = mask_ber | mask_input | mask_output
+        
+        # เลือกคอลัมน์ที่จำเป็น - ใช้คอลัมน์เดียวกับตารางหลัก
+        columns_to_show = ["Site Name", "ME", "Call ID", "Measure Object", "Threshold", "Instant BER After FEC"]
+        
+        # เพิ่มคอลัมน์ Input/Output ถ้ามี (ใช้ชื่อคอลัมน์เดียวกับตารางหลัก)
+        if self.col_in in df_view.columns:
+            columns_to_show.extend([self.col_in, self.col_min_in, self.col_max_in])
+        if self.col_out in df_view.columns:
+            columns_to_show.extend([self.col_out, self.col_min_out, self.col_max_out])
+        
+        fail_rows = df_view[mask_any_abnormal][columns_to_show]
+        
+        st.markdown(f"**Problem Call IDs (BER/Input/Output abnormal)** - Found {len(fail_rows)} rows")
+        
+        if not fail_rows.empty:
+
+            def highlight_line_row(row):
+                styles = [""] * len(row)
+                col_map = {c: i for i, c in enumerate(fail_rows.columns)}
+
+                # ✅ BER check - ใช้เงื่อนไขเดียวกับตารางหลัก: v > 0 หรือ None
+                # แต่ต้องมี Threshold ด้วย
+                try:
+                    ber = float(row["Instant BER After FEC"])
+                    thr = float(row.get("Threshold", 0))
+                    if pd.notna(thr) and (pd.isna(ber) or ber > 0):
+                        styles[col_map["Instant BER After FEC"]] = "background-color:#ff4d4d; color:white"
+                except:
+                    # ถ้าแปลงเป็น float ไม่ได้ (None, NaN) ให้แสดงสีแดง
+                    # แต่ต้องตรวจสอบ Threshold ด้วย
+                    try:
+                        thr = float(row.get("Threshold", 0))
+                        if pd.notna(thr):
+                            styles[col_map["Instant BER After FEC"]] = "background-color:#ff4d4d; color:white"
+                    except:
+                        pass
+
+                # ✅ Input check - ใช้คอลัมน์เดียวกับตารางหลัก
+                if self.col_in in row:
+                    try:
+                        v = float(row[self.col_in])
+                        lo = float(row[self.col_min_in])
+                        hi = float(row[self.col_max_in])
+                        if pd.notna(v) and pd.notna(lo) and pd.notna(hi) and (v < lo or v > hi):
+                            styles[col_map[self.col_in]] = "background-color:#ff4d4d; color:white"
+                    except:
+                        pass
+
+                # ✅ Output check - ใช้คอลัมน์เดียวกับตารางหลัก
+                if self.col_out in row:
+                    try:
+                        v = float(row[self.col_out])
+                        lo = float(row[self.col_min_out])
+                        hi = float(row[self.col_max_out])
+                        if pd.notna(v) and pd.notna(lo) and pd.notna(hi) and (v < lo or v > hi):
+                            styles[col_map[self.col_out]] = "background-color:#ff4d4d; color:white"
+                    except:
+                        pass
+
+                return styles
+           
+            fail_rows = fail_rows.reset_index(drop=True)
+
+            styled = (
+                fail_rows.style
+                .apply(highlight_line_row, axis=1)
+                .format({
+                    "Threshold": "{:.2E}",
+                    "Instant BER After FEC": "{:.2E}",
+                    self.col_in: "{:.4f}",
+                    self.col_out: "{:.4f}",
+                    self.col_min_in: "{:.4f}",
+                    self.col_max_in: "{:.4f}",
+                    self.col_min_out: "{:.4f}",
+                    self.col_max_out: "{:.4f}"
+                }, na_rep="-")
+            )
+            st.dataframe(styled, use_container_width=True)
 
         # ---------- VISUALS (KPI, Donut, Line Chart, Preset) ----------
     def _render_summary_kpi(self, df_view: pd.DataFrame) -> None:
@@ -444,18 +556,21 @@ class Line_Analyzer:
 
 
     def _render_ber_donut(self, df_view: pd.DataFrame) -> None:
-        """แสดง BER Donut (OK vs Fail) — นับระดับเส้นที่วัด BER จริงเท่านั้น"""
+        """แสดง BER Donut (OK vs Fail) — ใช้เงื่อนไขเดียวกับตารางหลัก"""
         if "Instant BER After FEC" not in df_view.columns:
             return
 
         ber = pd.to_numeric(df_view["Instant BER After FEC"].astype(str), errors="coerce")
-        thr = pd.to_numeric(df_view["Threshold"].astype(str), errors="coerce")
-        measured = ber.notna() | thr.notna()
-        ok = (((thr.notna()) & (ber.notna()) & (ber <= thr)) |
-            ((thr.isna()) & (ber.notna()) & (ber == 0))) & measured
+        thr = pd.to_numeric(df_view.get("Threshold", pd.Series()), errors="coerce")
+        measured = ber.notna()
+        
+        # ใช้เงื่อนไขเดียวกับตารางหลัก: ber > 0 หรือ None = Fail, ber <= 0 = OK
+        # แต่ต้องมี Threshold ด้วย
+        fail = ((ber > 0) | ber.isna()) & thr.notna()
+        ok = (ber <= 0) & measured & thr.notna()
+        
+        fail_cnt = int(fail.sum())
         ok_cnt = int(ok.sum())
-        total = int(measured.sum())
-        fail_cnt = max(0, total - ok_cnt)
 
         # ----- Donut Chart -----
         fig = px.pie(
@@ -471,76 +586,65 @@ class Line_Analyzer:
 
         st.plotly_chart(fig, use_container_width=True)
 
-        
-        # ----- Fail Details -----
-        fail_rows = df_view[
-            (pd.to_numeric(df_view["Instant BER After FEC"], errors="coerce") >
-            pd.to_numeric(df_view["Threshold"], errors="coerce"))
-        ][[
-            "Site Name", "ME", "Call ID", "Measure Object", "Threshold", "Instant BER After FEC"
-        ]]
 
-        # ---------- NEW: Save to state ----------
-
-        
-        if not fail_rows.empty:
-            st.markdown("**Problem Call IDs (BER above threshold)**")
-
-            def highlight_line_row(row):
-                styles = [""] * len(row)
-                col_map = {c: i for i, c in enumerate(fail_rows.columns)}
-
-                # ✅ BER check
-                try:
-                    ber = float(row["Instant BER After FEC"])
-                    thr = float(row["Threshold"])
-                    if pd.notna(ber) and pd.notna(thr) and ber > thr:
-                        styles[col_map["Instant BER After FEC"]] = "background-color:#ff4d4d; color:white"
-                except:
-                    pass
-
-                # ✅ Input check
-                if "Input Optical Power(dBm)" in row:
-                    try:
-                        v = float(row["Input Optical Power(dBm)"])
-                        lo = float(row["Minimum threshold(in)"])
-                        hi = float(row["Maximum threshold(in)"])
-                        if pd.notna(v) and pd.notna(lo) and pd.notna(hi) and (v < lo or v > hi):
-                            styles[col_map["Input Optical Power(dBm)"]] = "background-color:#ff4d4d; color:white"
-                    except:
-                        pass
-
-                # ✅ Output check
-                if "Output Optical Power (dBm)" in row:
-                    try:
-                        v = float(row["Output Optical Power (dBm)"])
-                        lo = float(row["Minimum threshold(out)"])
-                        hi = float(row["Maximum threshold(out)"])
-                        if pd.notna(v) and pd.notna(lo) and pd.notna(hi) and (v < lo or v > hi):
-                            styles[col_map["Output Optical Power (dBm)"]] = "background-color:#ff4d4d; color:white"
-                    except:
-                        pass
-
-                return styles
-
-           
-            fail_rows = fail_rows.reset_index(drop=True)
-
-            styled = (
-                fail_rows.style
-                .apply(highlight_line_row, axis=1)
-                .format({
-                    "Threshold": "{:.2E}",
-                    "Instant BER After FEC": "{:.2E}"
-                }, na_rep="-")
-            )
-            st.dataframe(styled, use_container_width=True)
 
 
 
     def _render_line_charts(self, df_view: pd.DataFrame) -> None:
         """Plot Line Chart สำหรับ Board LB2R และ L4S (ใช้แถวจริงจากตารางหลัก)"""
         st.markdown("### Line Board Performance (LB2R & L4S)")
+        
+        # ---------- Problem Call IDs (BER above threshold) ----------
+        st.markdown("**Problem Call IDs (BER above threshold)**")
+        
+        # BER abnormal - ใช้เงื่อนไขเดียวกับตารางหลัก: v > 0 หรือ None
+        # แต่ต้องมี Threshold ด้วย
+        ber_val = pd.to_numeric(df_view.get("Instant BER After FEC", pd.Series()), errors="coerce")
+        thr_val = pd.to_numeric(df_view.get("Threshold", pd.Series()), errors="coerce")
+        mask_ber = ((ber_val > 0) | ber_val.isna()) & thr_val.notna()
+        
+        # เลือกคอลัมน์ที่จำเป็น
+        columns_to_show = ["Site Name", "ME", "Call ID", "Measure Object", "Threshold", "Instant BER After FEC"]
+        
+        fail_rows = df_view[mask_ber][columns_to_show]
+        
+        if not fail_rows.empty:
+            def highlight_ber_row(row):
+                styles = [""] * len(row)
+                col_map = {c: i for i, c in enumerate(fail_rows.columns)}
+                
+                # ✅ BER check - ใช้เงื่อนไขเดียวกับตารางหลัก: v > 0 หรือ None
+                # แต่ต้องมี Threshold ด้วย
+                try:
+                    ber = float(row["Instant BER After FEC"])
+                    thr = float(row.get("Threshold", 0))
+                    if pd.notna(thr) and (pd.isna(ber) or ber > 0):
+                        styles[col_map["Instant BER After FEC"]] = "background-color:#ff4d4d; color:white"
+                except:
+                    # ถ้าแปลงเป็น float ไม่ได้ (None, NaN) ให้แสดงสีแดง
+                    # แต่ต้องตรวจสอบ Threshold ด้วย
+                    try:
+                        thr = float(row.get("Threshold", 0))
+                        if pd.notna(thr):
+                            styles[col_map["Instant BER After FEC"]] = "background-color:#ff4d4d; color:white"
+                    except:
+                        pass
+                
+                return styles
+            
+            fail_rows = fail_rows.reset_index(drop=True)
+            
+            styled = (
+                fail_rows.style
+                .apply(highlight_ber_row, axis=1)
+                .format({
+                    "Threshold": "{:.2E}",
+                    "Instant BER After FEC": "{:.2E}"
+                }, na_rep="-")
+            )
+            st.dataframe(styled, use_container_width=True)
+        else:
+            st.info("No BER abnormal records found.")
 
         def _plot_board(df_board_raw: pd.DataFrame, board_name: str):
             if df_board_raw.empty:
@@ -598,7 +702,7 @@ class Line_Analyzer:
 
             # ---------- Input Power ----------
             fig.add_trace(go.Scatter(
-                x=x_index, y=vin, mode="lines+markers",
+                x=x_index, y=vin, mode="markers",
                 marker=dict(color=vin_colors, size=8, symbol="circle"),
                 line=dict(color="orange"), name="Input Power",
                 text=x_vals, customdata=site_labels,
@@ -607,7 +711,7 @@ class Line_Analyzer:
 
             # ---------- Output Power ----------
             fig.add_trace(go.Scatter(
-                x=x_index, y=vout, mode="lines+markers",
+                x=x_index, y=vout, mode="markers",
                 marker=dict(color=vout_colors, size=8, symbol="square"),
                 line=dict(color="blue"), name="Output Power",
                 text=x_vals, customdata=site_labels,
@@ -653,40 +757,34 @@ class Line_Analyzer:
             if not df_problems.empty:
                 st.markdown(f"**⚠️ Problem Lines for {board_name}:**")
 
-                def highlight_line_row(row):
-                    styles = [""] * len(row)
-                    col_map = {c: i for i, c in enumerate(df_problems.columns)}
+                # --- ก่อนทำ style: บังคับคอลัมน์ตัวเลขให้เป็น numeric เหมือนในตารางหลัก ---
+                num_cols = [
+                    "Threshold", "Instant BER After FEC",
+                    self.col_out, self.col_in,
+                    self.col_max_out, self.col_min_out, self.col_max_in, self.col_min_in
+                ]
+                for c in num_cols:
+                    if c in df_problems.columns:
+                        df_problems[c] = pd.to_numeric(df_problems[c], errors="coerce")
 
-                    # ✅ Input check
-                    try:
-                        v = float(row[self.col_in])
-                        lo = float(row[self.col_min_in])
-                        hi = float(row[self.col_max_in])
-                        if pd.notna(v) and pd.notna(lo) and pd.notna(hi) and (v < lo or v > hi):
-                            styles[col_map[self.col_in]] = "background-color:#ff4d4d; color:white"
-                    except:
-                        pass
+                # --- เรียงคอลัมน์ให้ตรงกับ Line Performance ---
+                cols_like_main = [c for c in getattr(self, "main_cols", []) if c in df_problems.columns]
+                if not cols_like_main:
+                    cols_like_main = [
+                        "Site Name","ME","Call ID","Measure Object","Threshold","Instant BER After FEC",
+                        self.col_max_out,self.col_min_out,self.col_out,
+                        self.col_max_in,self.col_min_in,self.col_in,"Route"
+                    ]
+                    cols_like_main = [c for c in cols_like_main if c in df_problems.columns]
 
-                    # ✅ Output check
-                    try:
-                        v = float(row[self.col_out])
-                        lo = float(row[self.col_min_out])
-                        hi = float(row[self.col_max_out])
-                        if pd.notna(v) and pd.notna(lo) and pd.notna(hi) and (v < lo or v > hi):
-                            styles[col_map[self.col_out]] = "background-color:#ff4d4d; color:white"
-                    except:
-                        pass
+                df_display = df_problems[cols_like_main].reset_index(drop=True)
 
-                    return styles
+                # --- เรียงคอลัมน์ให้ตรงกับ Line Performance ---
+                cols_like_main = [c for c in self.main_cols if c in df_problems.columns]
+                df_display = df_problems[cols_like_main].reset_index(drop=True)
 
-                styled = (
-                    df_problems.style
-                    .apply(highlight_line_row, axis=1)
-                    .format({
-                        "Threshold": "{:.2E}",
-                        "Instant BER After FEC": "{:.2E}"
-                    }, na_rep="-")
-                )
+                # --- ใช้สไตล์เดียวกันกับตารางหลัก (รวม format และการไฮไลต์ทั้งหมด) ---
+                styled = self._style_dataframe(df_display.copy())
                 st.dataframe(styled, use_container_width=True)
 
 

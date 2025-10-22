@@ -11,6 +11,8 @@ from Line_Analyzer import Line_Analyzer
 from Client_Analyzer import Client_Analyzer
 from Fiberflapping_Analyzer import FiberflappingAnalyzer
 from EOL_Core_Analyzer import EOLAnalyzer, CoreAnalyzer
+from Preset_Analyzer import PresetStatusAnalyzer
+from APO_Analyzer import ApoRemnantAnalyzer
 
 # ==============================
 # Helper: auto-create analyzer
@@ -114,6 +116,30 @@ def _ensure_analyzer(key: str, analyzer_cls, ref_file: str, ns: str):
     #return df_abn.style.applymap(highlight_red, subset=[value_col])
 
 
+def _ensure_preset_analyzer():
+    """สร้าง Preset analyzer ถ้ายังไม่มี"""
+    if (st.session_state.get("preset_analyzer") is None and 
+        st.session_state.get("wason_log") is not None):
+        try:
+            analyzer = PresetStatusAnalyzer(st.session_state["wason_log"])
+            analyzer.parse()
+            analyzer.analyze()
+            st.session_state["preset_analyzer"] = analyzer
+        except Exception as e:
+            st.write(f"DEBUG: Failed to create preset analyzer: {e}")
+
+def _ensure_apo_analyzer():
+    """สร้าง APO analyzer ถ้ายังไม่มี"""
+    if (st.session_state.get("apo_analyzer") is None and 
+        st.session_state.get("wason_log") is not None):
+        try:
+            analyzer = ApoRemnantAnalyzer(st.session_state["wason_log"])
+            analyzer.parse()
+            analyzer.analyze()
+            st.session_state["apo_analyzer"] = analyzer
+        except Exception as e:
+            st.write(f"DEBUG: Failed to create APO analyzer: {e}")
+
 # ==============================
 # SummaryTableReport (รวมทุก Analyzer)
 # ==============================
@@ -142,6 +168,59 @@ class SummaryTableReport:
 
         return (status, details, df_abn, df_abn_by_type)
 
+    def _get_preset_summary(self):
+        """ดึงข้อมูล Preset summary"""
+        analyzer = st.session_state.get("preset_analyzer")
+        if analyzer is None:
+            return ("No data", "Preset usage analysis from WASON logs", None, {})
+        
+        try:
+            df, summary = analyzer.to_dataframe()
+            if df is not None and not df.empty:
+                # ตรวจสอบว่ามี abnormal presets หรือไม่
+                fails = summary.get("fails", 0)
+                if fails > 0:
+                    return ("Abnormal", "Preset usage analysis from WASON logs", df, {"Preset": df})
+                else:
+                    return ("Normal", "Preset usage analysis from WASON logs", None, {})
+            else:
+                return ("No data", "Preset usage analysis from WASON logs", None, {})
+        except Exception as e:
+            st.write(f"DEBUG: Preset summary error: {e}")
+            return ("Error", "Preset usage analysis from WASON logs", None, {})
+
+    def _get_apo_summary(self):
+        """ดึงข้อมูล APO summary"""
+        analyzer = st.session_state.get("apo_analyzer")
+        if analyzer is None:
+            return ("No data", "APO remnant analysis from WASON logs", None, {})
+        
+        try:
+            rendered = getattr(analyzer, "rendered", [])
+            if rendered:
+                # ตรวจสอบว่ามี APO remnants หรือไม่
+                apo_sites = sum(1 for x in rendered if x[2])  # x[2] = has_apo
+                if apo_sites > 0:
+                    # สร้าง DataFrame จาก rendered data
+                    df_data = []
+                    for site, dest, has_apo, details in rendered:
+                        if has_apo:
+                            df_data.append({
+                                "Site": site,
+                                "Destination": dest,
+                                "APO Status": "Remnant Found",
+                                "Details": details
+                            })
+                    df_apo = pd.DataFrame(df_data) if df_data else None
+                    return ("Abnormal", "APO remnant analysis from WASON logs", df_apo, {"APO": df_apo})
+                else:
+                    return ("Normal", "APO remnant analysis from WASON logs", None, {})
+            else:
+                return ("No data", "APO remnant analysis from WASON logs", None, {})
+        except Exception as e:
+            st.write(f"DEBUG: APO summary error: {e}")
+            return ("Error", "APO remnant analysis from WASON logs", None, {})
+
     def render(self) -> None:
         st.markdown("## Summary Table — Network Inspection")
 
@@ -154,6 +233,10 @@ class SummaryTableReport:
         _ensure_analyzer("fiber", FiberflappingAnalyzer, "data/Flapping.xlsx", "fiber_summary")
         _ensure_analyzer("eol", EOLAnalyzer, "data/EOL.xlsx", "eol_summary")
         _ensure_analyzer("core", CoreAnalyzer, "data/EOL.xlsx", "core_summary")
+        
+        # เพิ่ม Preset และ APO analyzers
+        _ensure_preset_analyzer()
+        _ensure_apo_analyzer()
    
 
 
@@ -162,12 +245,14 @@ class SummaryTableReport:
 
 
         # ===== Header =====
+        st.markdown("---")
         col1, col2, col3, col4, col5 = st.columns([1, 1, 3, 1, 1])
-        col1.markdown("**Type**")
-        col2.markdown("**Task**")
-        col3.markdown("**Details**")
-        col4.markdown("**Results**")
-        col5.markdown("**View**")
+        col1.markdown("### Type")
+        col2.markdown("### Task")
+        col3.markdown("### Details")
+        col4.markdown("### Results")
+        col5.markdown("### View")
+        st.markdown("---")
 
         # ==============================
         # CPU Section
@@ -245,9 +330,25 @@ class SummaryTableReport:
         )
         self._render_row("Loss", "Core", core_details, core_status, core_abn, "Loss between core")
 
+        # ==============================
+        # PRESET Section
+        # ==============================
+        PRESET_DETAILS = "Preset usage analysis from WASON logs"
+        preset_status, preset_details, preset_abn, preset_abn_by_type = self._get_preset_summary()
+        self._render_row("Configuration", "Preset status", preset_details, preset_status, preset_abn, "Preset")
+
+        # ==============================
+        # APO Section
+        # ==============================
+        APO_DETAILS = "APO remnant analysis from WASON logs"
+        apo_status, apo_details, apo_abn, apo_abn_by_type = self._get_apo_summary()
+        self._render_row("Configuration", "APO remnant", apo_details, apo_status, apo_abn, "APO")
+
 
         #4 ===== Export PDF รวม =====
-        st.markdown("### Export Report")
+        st.markdown("---")
+        st.markdown("### 📊 Export Comprehensive Report")
+        st.markdown("Generate a detailed PDF report containing all analysis results and abnormal data.")
         all_abnormal = {
             "CPU": cpu_abn_by_type,   # ✅ CPU มาก่อน
             "FAN": fan_abn_by_type,
@@ -256,55 +357,66 @@ class SummaryTableReport:
             "Client": client_abn_by_type,
             "Fiber": fiber_abn_by_type,
             "EOL": eol_abn_by_type,
-            "Core": core_abn_by_type
+            "Core": core_abn_by_type,
+            "Preset": preset_abn_by_type,
+            "APO": apo_abn_by_type
         }
         
         # สร้างปุ่ม Generate Report พร้อม Progress bar
-        if st.button("📊 Generate PDF Report", key="generate_report_btn"):
-            # สร้าง Progress bar
-            report_progress = st.progress(0)
-            report_status = st.empty()
-            
-            try:
-                # Step 1: Collecting data
-                report_status.text("📋 Collecting analysis data...")
-                report_progress.progress(0.2)
-                import time
-                time.sleep(0.5)
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("📊 Generate PDF Report", key="generate_report_btn", use_container_width=True):
+                # สร้าง Progress bar
+                report_progress = st.progress(0)
+                report_status = st.empty()
                 
-                # Step 2: Generating PDF
-                report_status.text("📄 Generating PDF report...")
-                report_progress.progress(0.6)
-                pdf_bytes = generate_report(all_abnormal=all_abnormal)
-                
-                # Step 3: Finalizing
-                report_status.text("✅ Report generation completed!")
-                report_progress.progress(1.0)
-                time.sleep(0.5)
-                
-                # แสดงปุ่มดาวน์โหลด
-                st.success("🎉 PDF Report generated successfully!")
-                st.download_button(
-                    label="📥 Download Report (All Sections)",
-                    data=pdf_bytes,
-                    file_name=f"Network_Inspection_Report_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.pdf",
-                    mime="application/pdf",
-                    key="download_report_btn"
-                )
-                
-            except Exception as e:
-                st.error(f"❌ Failed to generate report: {e}")
-                report_progress.progress(0)
-                report_status.text("❌ Report generation failed")
-        else:
-            # แสดงปุ่มปกติเมื่อยังไม่ได้กด Generate
-            st.info("💡 Click 'Generate PDF Report' to create your comprehensive network inspection report")
+                try:
+                    # Step 1: Collecting data
+                    report_status.text("📋 Collecting analysis data...")
+                    report_progress.progress(0.2)
+                    import time
+                    time.sleep(0.5)
+                    
+                    # Step 2: Generating PDF
+                    report_status.text("📄 Generating PDF report...")
+                    report_progress.progress(0.6)
+                    pdf_bytes = generate_report(all_abnormal=all_abnormal)
+                    
+                    # Step 3: Finalizing
+                    report_status.text("✅ Report generation completed!")
+                    report_progress.progress(1.0)
+                    time.sleep(0.5)
+                    
+                    # แสดงปุ่มดาวน์โหลด
+                    st.success("🎉 PDF Report generated successfully!")
+                    st.download_button(
+                        label="📥 Download Report (All Sections)",
+                        data=pdf_bytes,
+                        file_name=f"Network_Inspection_Report_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                        mime="application/pdf",
+                        key="download_report_btn"
+                    )
+                    
+                except Exception as e:
+                    st.error(f"❌ Failed to generate report: {e}")
+                    report_progress.progress(0)
+                    report_status.text("❌ Report generation failed")
+            else:
+                # แสดงปุ่มปกติเมื่อยังไม่ได้กด Generate
+                st.info("💡 Click 'Generate PDF Report' to create your comprehensive network inspection report")
 
     def _render_row(self, type_name, task_name, details, status, df_abn, value_col: str, df_abn_by_type=None):
         """วาด summary row + toggle abnormal"""
         col1, col2, col3, col4, col5 = st.columns([1, 1, 3, 1, 1])
-        col1.write(type_name)
-        col2.write(task_name)
+        
+        # Type column with icon
+        type_icon = "⚡" if "Performance" in type_name else "🔧" if "Configuration" in type_name else "📊"
+        col1.markdown(f"{type_icon} **{type_name}**")
+        
+        # Task column
+        col2.markdown(f"**{task_name}**")
+        
+        # Details column
         col3.markdown(details.replace("\n", "<br>"), unsafe_allow_html=True)
 
         # Result cell
@@ -330,7 +442,9 @@ class SummaryTableReport:
         if key_state not in st.session_state:
             st.session_state[key_state] = False
 
-        if col5.button("View", key=key_button):
+        # View button with icon
+        button_text = "👁️ Hide" if st.session_state[key_state] else "👁️ View"
+        if col5.button(button_text, key=key_button):
             st.session_state[key_state] = not st.session_state[key_state]
 
         # Drilldown abnormal table
@@ -482,7 +596,24 @@ class SummaryTableReport:
                     styled = df_abn.style.apply(highlight_client_row, axis=1)
                     st.dataframe(styled, use_container_width=True)
 
+                # ===================== PRESET =====================
+                elif task_name == "Preset status":
+                    if df_abn is not None and not df_abn.empty:
+                        st.dataframe(df_abn, use_container_width=True)
+                    else:
+                        st.info("No abnormal preset data to display")
+
+                # ===================== APO =====================
+                elif task_name == "APO remnant":
+                    if df_abn is not None and not df_abn.empty:
+                        st.dataframe(df_abn, use_container_width=True)
+                    else:
+                        st.info("No APO remnant data to display")
+
             elif status == "Normal":
                 st.info(f"✅ All {task_name} values are within normal range.")
             else:
                 st.warning(f"⚠️ No {task_name} data available.")
+        
+        # Add separator between rows
+        st.markdown("---")

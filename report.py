@@ -53,6 +53,8 @@ def _build_summary_rows(all_abnormal: dict) -> list[tuple[str, str, str, str]]:
         "Fiber": "Threshold: Normal if ≤ 2 dB, Abnormal if > 2 dB",
         "EOL": "Threshold: Normal if ≤ 2.5 dB, Abnormal if > 2.5 dB",
         "Core": "Threshold: Normal if ≤ 3 dB, Abnormal if > 3 dB",
+        "Preset": "Preset usage analysis from WASON logs",
+        "APO": "APO remnant analysis from WASON logs",
     }
     task_map = {
         "CPU": "Control board",
@@ -63,6 +65,8 @@ def _build_summary_rows(all_abnormal: dict) -> list[tuple[str, str, str, str]]:
         "Fiber": "Fiber Flapping",
         "EOL": "Loss between EOL",
         "Core": "Loss between core",
+        "Preset": "Preset status",
+        "APO": "APO remnant",
     }
     type_map = {
         "CPU": "Performance",
@@ -73,10 +77,12 @@ def _build_summary_rows(all_abnormal: dict) -> list[tuple[str, str, str, str]]:
         "Fiber": "Performance",
         "EOL": "Performance",
         "Core": "Performance",
+        "Preset": "Configuration",
+        "APO": "Configuration",
     }
 
     rows: list[tuple[str, str, str, str]] = []
-    for key in ["CPU", "FAN", "MSU", "Line", "Client", "Fiber", "EOL", "Core"]:
+    for key in ["CPU", "FAN", "MSU", "Line", "Client", "Fiber", "EOL", "Core", "Preset", "APO"]:
         result = "Abnormal" if _has_abnormal(all_abnormal.get(key, {})) else "Normal"
         rows.append((type_map[key], task_map[key], details_map[key], result))
     return rows
