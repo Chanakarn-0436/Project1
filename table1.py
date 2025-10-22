@@ -58,7 +58,7 @@ def _ensure_analyzer(key: str, analyzer_cls, ref_file: str, ns: str):
                     df_client=st.session_state[data_key].copy(),
                     ref_path=ref_file
                 )
-            elif key == "fiber":
+            elif key == "fiberflapping":
                 # FiberflappingAnalyzer ต้องการ df_optical และ df_fm
                 df_optical = st.session_state.get("osc_data")
                 df_fm = st.session_state.get("fm_data")
@@ -73,9 +73,10 @@ def _ensure_analyzer(key: str, analyzer_cls, ref_file: str, ns: str):
                     return
             elif key == "eol":
                 # EOLAnalyzer ต้องการ df_raw_data และ df_ref
-                df_raw_data = st.session_state.get("eol_data")
+                df_raw_data = st.session_state.get("atten_data")
                 if df_raw_data is not None:
                     analyzer = analyzer_cls(
+                        df_ref=None,
                         df_raw_data=df_raw_data.copy(),
                         ref_path=ref_file
                     )
@@ -83,9 +84,10 @@ def _ensure_analyzer(key: str, analyzer_cls, ref_file: str, ns: str):
                     return
             elif key == "core":
                 # CoreAnalyzer ต้องการ df_raw_data และ df_ref
-                df_raw_data = st.session_state.get("eol_data")  # Core ใช้ข้อมูลเดียวกับ EOL
+                df_raw_data = st.session_state.get("atten_data")  # Core ใช้ข้อมูลเดียวกับ EOL
                 if df_raw_data is not None:
                     analyzer = analyzer_cls(
+                        df_ref=None,
                         df_raw_data=df_raw_data.copy(),
                         ref_path=ref_file
                     )
@@ -97,10 +99,7 @@ def _ensure_analyzer(key: str, analyzer_cls, ref_file: str, ns: str):
             analyzer.prepare()  # ✅ ใช้ prepare() (ไม่ render UI)
             st.session_state[analyzer_key] = analyzer
 
-            st.write(
-                f"DEBUG: Analyzer {key} created. "
-                f"df_abnormal rows = {len(analyzer.df_abnormal) if analyzer.df_abnormal is not None else 'None'}"
-            )
+            pass
         except Exception as e:
             st.warning(f"Auto-create {key.upper()} analyzer failed: {e}")
 
@@ -126,7 +125,7 @@ def _ensure_preset_analyzer():
             analyzer.analyze()
             st.session_state["preset_analyzer"] = analyzer
         except Exception as e:
-            st.write(f"DEBUG: Failed to create preset analyzer: {e}")
+            st.warning(f"Failed to create preset analyzer: {e}")
 
 def _ensure_apo_analyzer():
     """สร้าง APO analyzer ถ้ายังไม่มี"""
@@ -138,7 +137,7 @@ def _ensure_apo_analyzer():
             analyzer.analyze()
             st.session_state["apo_analyzer"] = analyzer
         except Exception as e:
-            st.write(f"DEBUG: Failed to create APO analyzer: {e}")
+            st.warning(f"Failed to create APO analyzer: {e}")
 
 # ==============================
 # SummaryTableReport (รวมทุก Analyzer)
@@ -154,17 +153,29 @@ class SummaryTableReport:
         analyzer = st.session_state.get(f"{key}_analyzer")
 
         if analyzer is None:
-            st.write(f"DEBUG: Analyzer {key} not found in session_state")
             return ("No data", details, None, {})
 
+        # ดึง df_abnormal
         df_abn = getattr(analyzer, "df_abnormal", None)
-        st.write(f"DEBUG: {key} df_abnormal type={type(df_abn)}, size={(len(df_abn) if df_abn is not None else 'None')}")
+        if df_abn is None:
+            df_abn = pd.DataFrame()
+        
+        # ดึง df_abnormal_by_type
         df_abn_by_type = getattr(analyzer, "df_abnormal_by_type", {})
+        
+        # กำหนด status
         status = "Normal"
-        if df_abn is not None and not df_abn.empty:
+        if not df_abn.empty:
             status = "Abnormal"
-        elif df_abn is None:
-            status = "No data"
+        elif df_abn is None or (isinstance(df_abn, pd.DataFrame) and df_abn.empty):
+            # ตรวจสอบใน df_abnormal_by_type ด้วย
+            has_abn = False
+            if df_abn_by_type:
+                for subtype, subdf in df_abn_by_type.items():
+                    if isinstance(subdf, pd.DataFrame) and not subdf.empty:
+                        has_abn = True
+                        break
+            status = "Abnormal" if has_abn else "Normal"
 
         return (status, details, df_abn, df_abn_by_type)
 
@@ -186,7 +197,7 @@ class SummaryTableReport:
             else:
                 return ("No data", "Preset usage analysis from WASON logs", None, {})
         except Exception as e:
-            st.write(f"DEBUG: Preset summary error: {e}")
+            st.warning(f"Preset summary error: {e}")
             return ("Error", "Preset usage analysis from WASON logs", None, {})
 
     def _get_apo_summary(self):
@@ -218,25 +229,56 @@ class SummaryTableReport:
             else:
                 return ("No data", "APO remnant analysis from WASON logs", None, {})
         except Exception as e:
-            st.write(f"DEBUG: APO summary error: {e}")
+            st.warning(f"APO summary error: {e}")
             return ("Error", "APO remnant analysis from WASON logs", None, {})
 
     def render(self) -> None:
         st.markdown("## Summary Table — Network Inspection")
 
         #2 ✅ Ensure analyzers are ready
-        _ensure_analyzer("cpu", CPU_Analyzer, "data/CPU.xlsx", "cpu_summary")
-        _ensure_analyzer("fan", FAN_Analyzer, "data/FAN.xlsx", "fan_summary")
-        _ensure_analyzer("msu", MSU_Analyzer, "data/MSU.xlsx", "msu_summary")
-        _ensure_analyzer("line", Line_Analyzer, "data/Line.xlsx", "line_summary")
-        _ensure_analyzer("client", Client_Analyzer, "data/Client.xlsx", "client_summary")
-        _ensure_analyzer("fiber", FiberflappingAnalyzer, "data/Flapping.xlsx", "fiber_summary")
-        _ensure_analyzer("eol", EOLAnalyzer, "data/EOL.xlsx", "eol_summary")
-        _ensure_analyzer("core", CoreAnalyzer, "data/EOL.xlsx", "core_summary")
+        with st.spinner("🔄 Initializing analyzers..."):
+            _ensure_analyzer("cpu", CPU_Analyzer, "data/CPU.xlsx", "cpu_summary")
+            _ensure_analyzer("fan", FAN_Analyzer, "data/FAN.xlsx", "fan_summary")
+            _ensure_analyzer("msu", MSU_Analyzer, "data/MSU.xlsx", "msu_summary")
+            _ensure_analyzer("line", Line_Analyzer, "data/Line.xlsx", "line_summary")
+            _ensure_analyzer("client", Client_Analyzer, "data/Client.xlsx", "client_summary")
+            _ensure_analyzer("fiberflapping", FiberflappingAnalyzer, "data/Flapping.xlsx", "fiberflapping_summary")
+            _ensure_analyzer("eol", EOLAnalyzer, "data/EOL.xlsx", "eol_summary")
+            _ensure_analyzer("core", CoreAnalyzer, "data/EOL.xlsx", "core_summary")
+            
+            # เพิ่ม Preset และ APO analyzers
+            _ensure_preset_analyzer()
+            _ensure_apo_analyzer()
         
-        # เพิ่ม Preset และ APO analyzers
-        _ensure_preset_analyzer()
-        _ensure_apo_analyzer()
+        # Debug: แสดงจำนวน analyzers ที่มี และสถานะ abnormal
+        analyzers_found = []
+        abnormal_found = []
+        for key in ["cpu", "fan", "msu", "line", "client", "fiberflapping", "eol", "core", "preset", "apo"]:
+            analyzer = st.session_state.get(f"{key}_analyzer")
+            if analyzer is not None:
+                analyzers_found.append(key)
+                # ตรวจสอบ abnormal
+                df_abn = getattr(analyzer, "df_abnormal", None)
+                df_abn_by_type = getattr(analyzer, "df_abnormal_by_type", {})
+                
+                has_abn = False
+                if df_abn is not None and isinstance(df_abn, pd.DataFrame) and not df_abn.empty:
+                    has_abn = True
+                elif df_abn_by_type:
+                    for subtype, subdf in df_abn_by_type.items():
+                        if isinstance(subdf, pd.DataFrame) and not subdf.empty:
+                            has_abn = True
+                            break
+                
+                if has_abn:
+                    abnormal_found.append(key)
+        
+        if analyzers_found:
+            st.success(f"✅ Found {len(analyzers_found)} analyzer(s): {', '.join(analyzers_found)}")
+            if abnormal_found:
+                st.info(f"🔴 Abnormal detected in: {', '.join(abnormal_found)}")
+        else:
+            st.warning("⚠️ No analyzers found. Please run analysis first.")
    
 
 
@@ -308,7 +350,7 @@ class SummaryTableReport:
         # ==============================
         FLAP_DETAILS = "Threshold: Normal if ≤ 2 dB, Abnormal if > 2 dB"
         fiber_status, fiber_details, fiber_abn, fiber_abn_by_type = self._get_summary(
-            "fiber", FiberflappingAnalyzer, FLAP_DETAILS, "Max - Min (dB)"
+            "fiberflapping", FiberflappingAnalyzer, FLAP_DETAILS, "Max - Min (dB)"
         )
         self._render_row("Fiber", "Flapping", fiber_details, fiber_status, fiber_abn, "Max - Min (dB)")
 
@@ -595,6 +637,102 @@ class SummaryTableReport:
 
                     styled = df_abn.style.apply(highlight_client_row, axis=1)
                     st.dataframe(styled, use_container_width=True)
+
+                # ===================== FIBER FLAPPING =====================
+                elif task_name == "Flapping":
+                    if df_abn is not None and not df_abn.empty:
+                        # แสดงตาราง Fiber Flapping
+                        cols_to_show = [
+                            "Begin Time", "End Time", "Site Name", "ME", "Measure Object",
+                            "Max Value of Input Optical Power(dBm)",
+                            "Min Value of Input Optical Power(dBm)",
+                            "Max - Min (dB)"
+                        ]
+                        df_show = df_abn[[c for c in cols_to_show if c in df_abn.columns]].copy()
+                        
+                        # Highlight Max - Min (dB) > 2.0
+                        def hl_flapping(val):
+                            try:
+                                if float(val) > 2.0:
+                                    return "background-color: #ff9999; color: black"
+                            except:
+                                pass
+                            return ""
+                        
+                        styled = df_show.style.applymap(hl_flapping, subset=["Max - Min (dB)"] if "Max - Min (dB)" in df_show.columns else [])
+                        st.dataframe(styled, use_container_width=True)
+                    else:
+                        st.info("No abnormal fiber flapping data to display")
+
+                # ===================== EOL =====================
+                elif task_name == "EOL":
+                    # EOL มี 2 ประเภท: Excess Loss และ Fiber Break
+                    analyzer = st.session_state.get("eol_analyzer")
+                    if analyzer and hasattr(analyzer, "abnormal_tables"):
+                        abn_tables = analyzer.abnormal_tables
+                        
+                        # EOL Excess Loss
+                        if "EOL Excess Loss" in abn_tables and not abn_tables["EOL Excess Loss"].empty:
+                            st.markdown("**EOL Excess Loss**")
+                            df_excess = abn_tables["EOL Excess Loss"]
+                            
+                            def hl_loss(val):
+                                return "background-color: #ffe6e6"
+                            
+                            styled = df_excess.style.applymap(hl_loss, subset=["Loss current - Loss EOL"])
+                            st.dataframe(styled, use_container_width=True)
+                        
+                        # EOL Fiber Break
+                        if "EOL Fiber Break" in abn_tables and not abn_tables["EOL Fiber Break"].empty:
+                            st.markdown("**EOL Fiber Break**")
+                            df_break = abn_tables["EOL Fiber Break"]
+                            
+                            def hl_remark(val):
+                                if str(val).strip() != "":
+                                    return "background-color: #fff8cc"
+                                return ""
+                            
+                            styled = df_break.style.applymap(hl_remark, subset=["Remark"])
+                            st.dataframe(styled, use_container_width=True)
+                        
+                        if all(abn_tables[k].empty for k in ["EOL Excess Loss", "EOL Fiber Break"] if k in abn_tables):
+                            st.info("No abnormal EOL data to display")
+                    else:
+                        st.info("No abnormal EOL data to display")
+
+                # ===================== CORE =====================
+                elif task_name == "Core":
+                    # Core มี 2 ประเภท: Loss Excess และ Fiber Break
+                    analyzer = st.session_state.get("core_analyzer")
+                    if analyzer and hasattr(analyzer, "abnormal_tables"):
+                        abn_tables = analyzer.abnormal_tables
+                        
+                        # Core Loss Excess
+                        if "Core Loss Excess" in abn_tables and not abn_tables["Core Loss Excess"].empty:
+                            st.markdown("**Core Loss Excess**")
+                            df_loss = abn_tables["Core Loss Excess"]
+                            
+                            def hl_red(val):
+                                return "background-color: #ffe6e6"
+                            
+                            styled = df_loss.style.applymap(hl_red, subset=["Loss between core"])
+                            st.dataframe(styled, use_container_width=True)
+                        
+                        # Core Fiber Break
+                        if "Core Fiber Break" in abn_tables and not abn_tables["Core Fiber Break"].empty:
+                            st.markdown("**Core Fiber Break**")
+                            df_break = abn_tables["Core Fiber Break"]
+                            
+                            def hl_yellow(val):
+                                return "background-color: #fff8cc"
+                            
+                            styled = df_break.style.applymap(hl_yellow, subset=["Loss between core"])
+                            st.dataframe(styled, use_container_width=True)
+                        
+                        if all(abn_tables[k].empty for k in ["Core Loss Excess", "Core Fiber Break"] if k in abn_tables):
+                            st.info("No abnormal Core data to display")
+                    else:
+                        st.info("No abnormal Core data to display")
 
                 # ===================== PRESET =====================
                 elif task_name == "Preset status":

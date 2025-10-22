@@ -243,25 +243,29 @@ def create_menu_with_indicators():
         "Fiber Flapping", "Loss between Core", "Loss between EOL", "Preset status", "APO Remnant", "Summary table & report"
     ]
     
-    # ตรวจสอบสถานะ abnormal สำหรับแต่ละเมนู
+    # ตรวจสอบสถานะ abnormal และจำนวนสำหรับแต่ละเมนู
     status_checks = {
-        "CPU": st.session_state.get("cpu_status", "Normal"),
-        "FAN": st.session_state.get("fan_status", "Normal"),
-        "MSU": st.session_state.get("msu_status", "Normal"),
-        "Line board": st.session_state.get("line_status", "Normal"),
-        "Client board": st.session_state.get("client_status", "Normal"),
-        "Fiber Flapping": st.session_state.get("fiberflapping_status", "Normal"),
-        "Loss between Core": st.session_state.get("core_status", "Normal"),
-        "Loss between EOL": st.session_state.get("eol_status", "Normal"),
-        "Preset status": st.session_state.get("preset_status", "Normal"),
-        "APO Remnant": st.session_state.get("apo_status", "Normal")
+        "CPU": (st.session_state.get("cpu_status", "Normal"), st.session_state.get("cpu_abn_count", 0)),
+        "FAN": (st.session_state.get("fan_status", "Normal"), st.session_state.get("fan_abn_count", 0)),
+        "MSU": (st.session_state.get("msu_status", "Normal"), st.session_state.get("msu_abn_count", 0)),
+        "Line board": (st.session_state.get("line_status", "Normal"), st.session_state.get("line_abn_count", 0)),
+        "Client board": (st.session_state.get("client_status", "Normal"), st.session_state.get("client_abn_count", 0)),
+        "Fiber Flapping": (st.session_state.get("fiberflapping_status", "Normal"), st.session_state.get("fiberflapping_abn_count", 0)),
+        "Loss between Core": (st.session_state.get("core_status", "Normal"), st.session_state.get("core_abn_count", 0)),
+        "Loss between EOL": (st.session_state.get("eol_status", "Normal"), st.session_state.get("eol_abn_count", 0)),
+        "Preset status": (st.session_state.get("preset_status", "Normal"), st.session_state.get("preset_abn_count", 0)),
+        "APO Remnant": (st.session_state.get("apo_status", "Normal"), st.session_state.get("apo_abn_count", 0))
     }
     
-    # สร้างเมนูพร้อมจุดสีแดง
+    # สร้างเมนูพร้อมจุดสีแดงและตัวเลข
     menu_with_indicators = []
     for item in menu_items:
-        if item in status_checks and status_checks[item] == "Abnormal":
-            menu_with_indicators.append(f"🔴 {item}")
+        if item in status_checks:
+            status, count = status_checks[item]
+            if status == "Abnormal" and count > 0:
+                menu_with_indicators.append(f"🔴 {item} ({count})")
+            else:
+                menu_with_indicators.append(item)
         else:
             menu_with_indicators.append(item)
     
@@ -499,10 +503,166 @@ if original_menu == "Home":
                 analysis_progress.progress(1.0)
                 analysis_status.text(f"✅ Analysis completed! Processed {processed_files}/{total_files} files")
                 
+                # ==============================
+                # Initialize analyzers and set session state for sidebar indicators
+                # ==============================
+                analysis_status.text("🔄 Initializing analyzers for sidebar indicators...")
+                
+                # Initialize CPU analyzer
+                if st.session_state.get("cpu_data") is not None:
+                    try:
+                        df_ref = pd.read_excel("data/CPU.xlsx")
+                        analyzer = CPU_Analyzer(
+                            df_cpu=st.session_state["cpu_data"].copy(),
+                            df_ref=df_ref.copy(),
+                            ns="cpu_summary"
+                        )
+                        analyzer.prepare()
+                        st.session_state["cpu_analyzer"] = analyzer
+                    except Exception as e:
+                        st.write(f"CPU analyzer initialization failed: {e}")
+                
+                # Initialize FAN analyzer
+                if st.session_state.get("fan_data") is not None:
+                    try:
+                        df_ref = pd.read_excel("data/FAN.xlsx")
+                        analyzer = FAN_Analyzer(
+                            df_fan=st.session_state["fan_data"].copy(),
+                            df_ref=df_ref.copy(),
+                            ns="fan_summary"
+                        )
+                        analyzer.prepare()
+                        st.session_state["fan_analyzer"] = analyzer
+                    except Exception as e:
+                        st.write(f"FAN analyzer initialization failed: {e}")
+                
+                # Initialize MSU analyzer
+                if st.session_state.get("msu_data") is not None:
+                    try:
+                        df_ref = pd.read_excel("data/MSU.xlsx")
+                        analyzer = MSU_Analyzer(
+                            df_msu=st.session_state["msu_data"].copy(),
+                            df_ref=df_ref.copy(),
+                            ns="msu_summary"
+                        )
+                        analyzer.prepare()
+                        st.session_state["msu_analyzer"] = analyzer
+                    except Exception as e:
+                        st.write(f"MSU analyzer initialization failed: {e}")
+                
+                # Initialize Line analyzer
+                if st.session_state.get("line_data") is not None:
+                    try:
+                        df_ref = pd.read_excel("data/Line.xlsx")
+                        analyzer = Line_Analyzer(
+                            df_line=st.session_state["line_data"].copy(),
+                            df_ref=df_ref.copy(),
+                            ns="line_summary"
+                        )
+                        analyzer.prepare()
+                        st.session_state["line_analyzer"] = analyzer
+                    except Exception as e:
+                        st.write(f"Line analyzer initialization failed: {e}")
+                
+                # Initialize Client analyzer
+                if st.session_state.get("client_data") is not None:
+                    try:
+                        analyzer = Client_Analyzer(
+                            df_client=st.session_state["client_data"].copy(),
+                            ref_path="data/Client.xlsx"
+                        )
+                        analyzer.prepare()
+                        st.session_state["client_analyzer"] = analyzer
+                    except Exception as e:
+                        st.write(f"Client analyzer initialization failed: {e}")
+                
+                # Initialize Fiberflapping analyzer
+                if (st.session_state.get("osc_data") is not None and 
+                    st.session_state.get("fm_data") is not None):
+                    try:
+                        analyzer = FiberflappingAnalyzer(
+                            df_optical=st.session_state["osc_data"].copy(),
+                            df_fm=st.session_state["fm_data"].copy(),
+                            threshold=2.0,
+                            ref_path="data/Flapping.xlsx"
+                        )
+                        analyzer.prepare()
+                        st.session_state["fiberflapping_analyzer"] = analyzer
+                    except Exception as e:
+                        st.write(f"Fiberflapping analyzer initialization failed: {e}")
+                
+                # Initialize EOL analyzer
+                if st.session_state.get("atten_data") is not None:
+                    try:
+                        analyzer = EOLAnalyzer(
+                            df_ref=None,
+                            df_raw_data=st.session_state["atten_data"].copy(),
+                            ref_path="data/EOL.xlsx"
+                        )
+                        analyzer.prepare()
+                        st.session_state["eol_analyzer"] = analyzer
+                    except Exception as e:
+                        st.write(f"EOL analyzer initialization failed: {e}")
+                
+                # Initialize Core analyzer
+                if st.session_state.get("atten_data") is not None:
+                    try:
+                        analyzer = CoreAnalyzer(
+                            df_ref=None,
+                            df_raw_data=st.session_state["atten_data"].copy(),
+                            ref_path="data/EOL.xlsx"
+                        )
+                        analyzer.prepare()
+                        st.session_state["core_analyzer"] = analyzer
+                    except Exception as e:
+                        st.write(f"Core analyzer initialization failed: {e}")
+                
+                # Initialize Preset analyzer
+                if st.session_state.get("wason_log") is not None:
+                    try:
+                        analyzer = PresetStatusAnalyzer(st.session_state["wason_log"])
+                        analyzer.parse()
+                        analyzer.analyze()
+                        st.session_state["preset_analyzer"] = analyzer
+                        # Set session state for sidebar indicator
+                        df, summary = analyzer.to_dataframe()
+                        fails = summary.get("fails", 0)
+                        st.session_state["preset_abn_count"] = fails
+                        st.session_state["preset_status"] = "Abnormal" if fails > 0 else "Normal"
+                    except Exception as e:
+                        st.write(f"Preset analyzer initialization failed: {e}")
+                
+                # Initialize APO analyzer
+                if st.session_state.get("wason_log") is not None:
+                    try:
+                        analyzer = ApoRemnantAnalyzer(st.session_state["wason_log"])
+                        analyzer.parse()
+                        analyzer.analyze()
+                        st.session_state["apo_analyzer"] = analyzer
+                        # Set session state for sidebar indicator
+                        rendered = getattr(analyzer, "rendered", [])
+                        apo_sites = sum(1 for x in rendered if x[2])  # x[2] = has_apo
+                        st.session_state["apo_abn_count"] = apo_sites
+                        st.session_state["apo_status"] = "Abnormal" if apo_sites > 0 else "Normal"
+                    except Exception as e:
+                        st.write(f"APO analyzer initialization failed: {e}")
+                
+                analysis_status.text("✅ All analyzers initialized!")
+                
                 # แสดงผลลัพธ์
                 if processed_files == total_files:
                     st.success(f"🎉 All {total_files} files analyzed successfully!")
                     st.info("📊 You can now navigate to individual analysis pages to view results")
+                    
+                    # แสดง Summary Table ทันที
+                    st.markdown("---")
+                    st.markdown("## 📊 Summary Table")
+                    try:
+                        from table1 import SummaryTableReport
+                        summary = SummaryTableReport()
+                        summary.render()
+                    except Exception as e:
+                        st.error(f"Failed to load Summary Table: {e}")
                 else:
                     st.warning(f"⚠️ Analyzed {processed_files}/{total_files} files successfully")
                 
@@ -742,6 +902,10 @@ elif original_menu == "Dashboard":
     supabase = get_supabase()
     if supabase.is_connected():
         st.success("✅ Connected to Supabase Database")
+        
+        # ==============================
+        # Dashboard content will be displayed here
+        # ==============================
         
      
         

@@ -320,7 +320,6 @@ class EOLAnalyzer(LossAnalyzer):
         """
         if self.df_ref is not None and self.df_raw_data is not None:
             df_result = self.build_result_df()
-            print("[DEBUG][EOL] build_result_df shape:", df_result.shape)
 
             status_list = []
             for _, row in df_result.iterrows():
@@ -340,8 +339,12 @@ class EOLAnalyzer(LossAnalyzer):
                 "EOL Excess Loss": df_excess,
                 "EOL Fiber Break": df_break,
             }
-
-            print(f"[DEBUG][EOL] Excess={len(df_excess)}, Break={len(df_break)}")
+            
+            # ✅ ตั้งค่า session_state สำหรับ sidebar indicator
+            abnormal_cnt = len(df_excess) + len(df_break)
+            st.session_state["eol_abn_count"] = abnormal_cnt
+            st.session_state["eol_status"] = "Abnormal" if abnormal_cnt > 0 else "Normal"
+            st.session_state["eol_analyzer"] = self
 
 
 class CoreAnalyzer(EOLAnalyzer):
@@ -603,7 +606,6 @@ class CoreAnalyzer(EOLAnalyzer):
         """
         if self.df_ref is not None and self.df_raw_data is not None:
             df_result = self.build_result_df()
-            print("[DEBUG][Core] build_result_df shape:", df_result.shape)
 
             df_loss_between_core = self.calculate_loss_between_core(df_result)
             link_names  = df_loss_between_core["Link Name"].tolist()
@@ -635,5 +637,9 @@ class CoreAnalyzer(EOLAnalyzer):
                 "Core Loss Excess": df_loss,
                 "Core Fiber Break": df_break,
             }
-
-            print(f"[DEBUG][Core] LossExcess={len(df_loss)}, Break={len(df_break)}")
+            
+            # ✅ ตั้งค่า session_state สำหรับ sidebar indicator
+            abnormal_cnt = len(df_loss) + len(df_break)
+            st.session_state["core_abn_count"] = abnormal_cnt
+            st.session_state["core_status"] = "Abnormal" if abnormal_cnt > 0 else "Normal"
+            st.session_state["core_analyzer"] = self
