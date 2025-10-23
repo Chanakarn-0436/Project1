@@ -641,26 +641,45 @@ class SummaryTableReport:
                 # ===================== FIBER FLAPPING =====================
                 elif task_name == "Flapping":
                     if df_abn is not None and not df_abn.empty:
-                        # แสดงตาราง Fiber Flapping
+                        # แยกข้อมูลตามวัน
+                        df_with_date = df_abn.copy()
+                        df_with_date["Date"] = pd.to_datetime(df_with_date["Begin Time"]).dt.date
+                        
+                        # เรียงตามวัน (เก่า -> ใหม่)
+                        dates_sorted = sorted(df_with_date["Date"].unique())
+                        
                         cols_to_show = [
                             "Begin Time", "End Time", "Site Name", "ME", "Measure Object",
                             "Max Value of Input Optical Power(dBm)",
                             "Min Value of Input Optical Power(dBm)",
                             "Max - Min (dB)"
                         ]
-                        df_show = df_abn[[c for c in cols_to_show if c in df_abn.columns]].copy()
                         
-                        # Highlight Max - Min (dB) > 2.0
-                        def hl_flapping(val):
-                            try:
-                                if float(val) > 2.0:
-                                    return "background-color: #ff9999; color: black"
-                            except:
-                                pass
-                            return ""
-                        
-                        styled = df_show.style.applymap(hl_flapping, subset=["Max - Min (dB)"] if "Max - Min (dB)" in df_show.columns else [])
-                        st.dataframe(styled, use_container_width=True)
+                        # แสดงข้อมูลแต่ละวัน
+                        for date in dates_sorted:
+                            df_day = df_with_date[df_with_date["Date"] == date].copy()
+                            num_sites = df_day["ME"].nunique() if "ME" in df_day.columns else len(df_day)
+                            
+                            # หัวข้อวัน
+                            st.markdown(f"**{date} ({num_sites} sites)**")
+                            
+                            # เลือกคอลัมน์ที่จะแสดง
+                            df_show = df_day[[c for c in cols_to_show if c in df_day.columns]].copy()
+                            
+                            # Highlight Max - Min (dB) > 2.0
+                            def hl_flapping(val):
+                                try:
+                                    if float(val) > 2.0:
+                                        return "background-color: #ff9999; color: black"
+                                except:
+                                    pass
+                                return ""
+                            
+                            styled = df_show.style.applymap(hl_flapping, subset=["Max - Min (dB)"] if "Max - Min (dB)" in df_show.columns else [])
+                            st.dataframe(styled, use_container_width=True, height=min(len(df_show) * 35 + 38, 400))
+                            
+                            # เว้นบรรทัดระหว่างวัน
+                            st.markdown("")
                     else:
                         st.info("No abnormal fiber flapping data to display")
 
