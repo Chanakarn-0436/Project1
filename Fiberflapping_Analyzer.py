@@ -20,15 +20,20 @@ class FiberflappingAnalyzer:
     การใช้งาน:
         analyzer = FiberflappingAnalyzer(df_optical, df_fm, threshold=2.0)
         analyzer.process()
+        
+    Debug mode:
+        analyzer = FiberflappingAnalyzer(df_optical, df_fm, threshold=2.0, debug=True)
+        analyzer.process()  # จะแสดงข้อมูล debug ว่ากรอง fiber cut อะไรออกบ้าง
     """
 
-    def __init__(self, df_optical: pd.DataFrame, df_fm: pd.DataFrame, threshold: float = 2.0, ref_path: str = "data/Flapping.xlsx"):
+    def __init__(self, df_optical: pd.DataFrame, df_fm: pd.DataFrame, threshold: float = 2.0, ref_path: str = "data/Flapping.xlsx", debug: bool = False):
         self.df_optical_raw = df_optical
         self.df_fm_raw = df_fm
         self.threshold = threshold
         self.ref_path = ref_path
         self.df_ref = None  # Reference data for site names
         self.daily_tables = None  # NEW: เก็บผลตารางรายวันสำหรับ export/report
+        self.debug = debug  # Debug mode
 
      
 
@@ -117,42 +122,68 @@ class FiberflappingAnalyzer:
     def filter_optical_by_threshold(self, df_optical_norm: pd.DataFrame) -> pd.DataFrame:
         return df_optical_norm[df_optical_norm["Max - Min (dB)"] > self.threshold].copy()
 
+    def _get_me_variations(self, me_name: str) -> list:
+        """
+        สร้าง variations ของ ME name เพื่อใช้ในการ match
+        
+        Returns:
+            list of possible ME variations
+            
+        Example:
+            BK_WCO_0143_210_1Z → [
+                'BK_WCO_0143_210_1Z',
+                'BK_WCO_0143_210_1Z_A',
+                'BK_WCO_0143_210_1Z_R'
+            ]
+        """
+        me_name = str(me_name).strip()
+        variations = [me_name]
+        
+        # ถ้าลงท้ายด้วย _A หรือ _R ให้เพิ่ม base version
+        if me_name.endswith('_R') or me_name.endswith('_A'):
+            base = me_name[:-2]
+            variations.append(base)
+            # เพิ่มอีก variant ที่เป็นไปได้
+            other_suffix = '_A' if me_name.endswith('_R') else '_R'
+            variations.append(base + other_suffix)
+        else:
+            # ถ้าไม่มี suffix ให้เพิ่มทั้ง _A และ _R
+            variations.append(me_name + '_A')
+            variations.append(me_name + '_R')
+        
+        return variations
+
     def find_nomatch(self, df_filtered: pd.DataFrame, df_fm_norm: pd.DataFrame, link_col: str) -> pd.DataFrame:
         """
         หาแถวใน df_filtered ที่เป็น Fiber Flapping (ไม่ใช่ Fiber Cut):
         
         Logic:
-          1. ดึง ME และ Target ME จาก OSC Optical 
-             - ME: จาก column "ME" (เช่น SR_WCO_9006_043_1Z_A)
-             - Target ME: จาก Measure Object ในวงเล็บ (เช่น SR_WCO_8301_032_1Z_R)
-             
-          2. Map กับ Link ใน FM Alarm
-             - Link format: SR_WCO_8901_046_1Z_A-EONA2122[0-1-28]-OTS_TTP_So:1-(OUT)_SR_WCO_9006_043_1Z_A-...
-             - ตรวจสอบว่า Link มีทั้ง ME และ Target ME (ไม่สนว่าทิศทางไหน)
-             
-          3. เช็คเวลา overlap:
-             - Begin Time (OSC) vs Occurrence Time (FM)
-             - End Time (OSC) vs Clear Time (FM)
-             - Overlap ถ้า: Occurrence Time <= End Time และ Clear Time >= Begin Time
-             
-          4. ผลลัพธ์:
-             - ถ้า match (มี Link และเวลา overlap) → Fiber Cut (กรองออก)
-             - ถ้าไม่ match → Fiber Flapping (แสดง)
+          1. ดึง ME และ Target ME จาก OSC Optical
+          2. สร้าง variations ของ ME names (รองรับ suffix _A, _R)
+          3. ตรวจสอบว่า Link ใน FM Alarm มี ME และ Target ME ทุก variation
+          4. เช็คเวลา overlap: Occurrence <= End และ Clear >= Begin
+          5. ถ้า match → Fiber Cut (กรอง), ไม่ match → Fiber Flapping (แสดง)
         """
         result_rows = []
+        filtered_count = 0  # นับจำนวนที่ถูกกรองออก
         
-        for _, row in df_filtered.iterrows():
+        for idx, row in df_filtered.iterrows():
             me_raw = str(row.get("ME", "")).strip()
             target_me_raw = str(row.get("Target ME", "")).strip()
             begin_t = row.get("Begin Time", pd.NaT)
             end_t = row.get("End Time", pd.NaT)
             
-            # ถ้าไม่มีข้อมูลครบ skip
+            # ต้องมีข้อมูลครบ
             if not me_raw or not target_me_raw or pd.isna(begin_t) or pd.isna(end_t):
                 continue
             
+            # สร้าง variations สำหรับ matching
+            me_variations = self._get_me_variations(me_raw)
+            target_variations = self._get_me_variations(target_me_raw)
+            
             # ค้นหา Fiber Cut ใน FM Alarm
             is_fiber_cut = False
+            matched_link = None  # สำหรับ debug
             
             for _, fm_row in df_fm_norm.iterrows():
                 link_val = str(fm_row.get(link_col, ""))
@@ -163,30 +194,37 @@ class FiberflappingAnalyzer:
                 if pd.isna(occur_time):
                     continue
                 
-                # ✅ Step 1: ตรวจสอบว่า Link มีทั้ง ME และ Target ME หรือไม่
-                # ไม่สนทิศทาง: ME และ Target ME อาจจะอยู่ที่ไหนก็ได้ใน Link
-                has_me_in_link = me_raw in link_val
-                has_target_in_link = target_me_raw in link_val
+                # ✅ ตรวจสอบว่า Link มี ME variation ใดๆ
+                has_me = any(var in link_val for var in me_variations)
                 
-                if has_me_in_link and has_target_in_link:
-                    # ✅ Step 2: ตรวจสอบช่วงเวลา overlap
-                    # Fiber Cut เกิดขึ้นถ้าช่วงเวลา overlap กัน
-                    
+                # ✅ ตรวจสอบว่า Link มี Target ME variation ใดๆ
+                has_target = any(var in link_val for var in target_variations)
+                
+                if has_me and has_target:
+                    # ✅ ตรวจสอบช่วงเวลา overlap
                     if pd.isna(clear_time):
-                        # ยังไม่ Clear: ถ้า Occurrence <= End Time → overlap
+                        # ยังไม่ Clear: Occurrence <= End → overlap
                         if occur_time <= end_t:
                             is_fiber_cut = True
+                            matched_link = link_val
                             break
                     else:
-                        # มี Clear Time: ตรวจสอบ overlap
-                        # Overlap ถ้า: Occurrence <= End และ Clear >= Begin
+                        # มี Clear Time: Occurrence <= End และ Clear >= Begin
                         if occur_time <= end_t and clear_time >= begin_t:
                             is_fiber_cut = True
+                            matched_link = link_val
                             break
             
             # ✅ ถ้าไม่ใช่ Fiber Cut → เก็บเป็น Fiber Flapping
             if not is_fiber_cut:
                 result_rows.append(row)
+            else:
+                filtered_count += 1
+                if self.debug:
+                    st.write(f"🔴 Filtered as Fiber Cut: ME={me_raw}, Target={target_me_raw}, Link={matched_link}")
+        
+        if self.debug:
+            st.info(f"📊 Fiber Cut Filtering: {filtered_count} records filtered out, {len(result_rows)} Fiber Flapping kept")
         
         return pd.DataFrame(result_rows)
 
