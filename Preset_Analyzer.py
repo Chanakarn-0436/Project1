@@ -73,11 +73,11 @@ def evaluate_preset_status(cb: CallBlock) -> Dict[str, Any]:
     pr_index: Optional[int] = None
 
     if not wr_no_alarm:
-        Restore = "WR found but not WR NO_ALARM"
+        Restore = "Abnormal (WR found but not WR NO_ALARM)"
     elif len(used_rows) != 1:
-        Restore = f"Found {len(used_rows)} USED rows (expected 1)"
+        Restore = f"Abnormal (Found {len(used_rows)} USED rows (expected 1))"
     elif used_rows[0]["result"] != "SUCCESS":
-        Restore = "USED row is not SUCCESS"
+        Restore = "Abnormal (USED row is not SUCCESS)"
     else:
         verdict = "PASS"
         pr_index = used_rows[0]["index"]

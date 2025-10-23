@@ -187,17 +187,28 @@ class SummaryTableReport:
         
         try:
             df, summary = analyzer.to_dataframe()
+            
             if df is not None and not df.empty:
+                # กรองเฉพาะแถวที่มี Status != "Normal" (คือ abnormal)
+                df_abnormal = df.copy()
+                if "Status" in df_abnormal.columns:
+                    df_abnormal = df_abnormal[df_abnormal["Status"] != "Normal"]
+                
+                # เลือกเฉพาะคอลัมน์ที่ต้องการแสดง (ไม่เอา Raw)
+                cols_to_show = ["Call", "IP", "Preroute", "Status"]
+                df_abnormal = df_abnormal[[c for c in cols_to_show if c in df_abnormal.columns]]
+                
                 # ตรวจสอบว่ามี abnormal presets หรือไม่
-                fails = summary.get("fails", 0)
-                if fails > 0:
-                    return ("Abnormal", "Preset usage analysis from WASON logs", df, {"Preset": df})
+                if not df_abnormal.empty:
+                    return ("Abnormal", "Preset usage analysis from WASON logs", df_abnormal, {"Preset": df_abnormal})
                 else:
                     return ("Normal", "Preset usage analysis from WASON logs", None, {})
             else:
                 return ("No data", "Preset usage analysis from WASON logs", None, {})
         except Exception as e:
             st.warning(f"Preset summary error: {e}")
+            import traceback
+            st.code(traceback.format_exc())
             return ("Error", "Preset usage analysis from WASON logs", None, {})
 
     def _get_apo_summary(self):
@@ -208,20 +219,34 @@ class SummaryTableReport:
         
         try:
             rendered = getattr(analyzer, "rendered", [])
+            
             if rendered:
                 # ตรวจสอบว่ามี APO remnants หรือไม่
-                apo_sites = sum(1 for x in rendered if x[2])  # x[2] = has_apo
-                if apo_sites > 0:
+                apo_count = 0
+                for x in rendered:
+                    if len(x) >= 3 and x[2]:  # x[2] = has_apo
+                        apo_count += 1
+                
+                if apo_count > 0:
                     # สร้าง DataFrame จาก rendered data
                     df_data = []
-                    for site, dest, has_apo, details in rendered:
-                        if has_apo:
-                            df_data.append({
-                                "Site": site,
-                                "Destination": dest,
-                                "APO Status": "Remnant Found",
-                                "Details": details
-                            })
+                    for item in rendered:
+                        if len(item) >= 4:
+                            wip = item[0]
+                            dest_tuple = item[1]  # (site_name, wason_snippet, apop_snippet, set1, set2)
+                            has_apo = item[2]
+                            sort_name = item[3]
+                            
+                            if has_apo:
+                                # Extract site name from tuple
+                                site_name = dest_tuple[0] if len(dest_tuple) > 0 else ""
+                                
+                                df_data.append({
+                                    "Site IP": wip,
+                                    "Site Name": site_name,
+                                    "APO Status": "Remnant Found"
+                                })
+                    
                     df_apo = pd.DataFrame(df_data) if df_data else None
                     return ("Abnormal", "APO remnant analysis from WASON logs", df_apo, {"APO": df_apo})
                 else:
@@ -257,21 +282,44 @@ class SummaryTableReport:
             analyzer = st.session_state.get(f"{key}_analyzer")
             if analyzer is not None:
                 analyzers_found.append(key)
-                # ตรวจสอบ abnormal
-                df_abn = getattr(analyzer, "df_abnormal", None)
-                df_abn_by_type = getattr(analyzer, "df_abnormal_by_type", {})
                 
-                has_abn = False
-                if df_abn is not None and isinstance(df_abn, pd.DataFrame) and not df_abn.empty:
-                    has_abn = True
-                elif df_abn_by_type:
-                    for subtype, subdf in df_abn_by_type.items():
-                        if isinstance(subdf, pd.DataFrame) and not subdf.empty:
-                            has_abn = True
-                            break
-                
-                if has_abn:
-                    abnormal_found.append(key)
+                # ตรวจสอบ abnormal แบบพิเศษสำหรับ preset และ apo
+                if key == "preset":
+                    try:
+                        df, _ = analyzer.to_dataframe()
+                        if df is not None and not df.empty:
+                            # ตรวจสอบว่ามี Status != "Normal" หรือไม่
+                            if "Status" in df.columns:
+                                df_abnormal = df[df["Status"] != "Normal"]
+                                if not df_abnormal.empty:
+                                    abnormal_found.append(key)
+                    except:
+                        pass
+                elif key == "apo":
+                    try:
+                        rendered = getattr(analyzer, "rendered", [])
+                        if rendered:
+                            apo_sites = sum(1 for x in rendered if x[2])
+                            if apo_sites > 0:
+                                abnormal_found.append(key)
+                    except:
+                        pass
+                else:
+                    # ตรวจสอบ abnormal แบบปกติ
+                    df_abn = getattr(analyzer, "df_abnormal", None)
+                    df_abn_by_type = getattr(analyzer, "df_abnormal_by_type", {})
+                    
+                    has_abn = False
+                    if df_abn is not None and isinstance(df_abn, pd.DataFrame) and not df_abn.empty:
+                        has_abn = True
+                    elif df_abn_by_type:
+                        for subtype, subdf in df_abn_by_type.items():
+                            if isinstance(subdf, pd.DataFrame) and not subdf.empty:
+                                has_abn = True
+                                break
+                    
+                    if has_abn:
+                        abnormal_found.append(key)
         
         if analyzers_found:
             st.success(f"✅ Found {len(analyzers_found)} analyzer(s): {', '.join(analyzers_found)}")
