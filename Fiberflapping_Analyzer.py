@@ -253,17 +253,23 @@ class FiberflappingAnalyzer:
             sel_day = st.session_state["selected_day"]
             sel = df_nomatch[df_nomatch["Date"] == sel_day]
 
-            st.markdown(f"#### Details for {sel_day}")
             # สรุปจำนวน flapping ต่อ Site Name เรียงจากมากไปน้อย
             if not sel.empty and "Site Name" in sel.columns:
                 counts = sel["Site Name"].value_counts().reset_index()
                 counts.columns = ["Site Name", "Count"]
+                num_sites = len(counts)
+                
+                # แสดงหัวข้อพร้อมจำนวนไซต์
+                st.markdown(f"#### {sel_day} {num_sites} sites")
+                
                 # สร้างข้อความรวมในบรรทัดเดียว เช่น Wiang Sra_Z (2 links)
                 counts_str = " ".join([
                     f"{r['Site Name']} ({r['Count']} link{'s' if r['Count'] > 1 else ''})"
                     for _, r in counts.iterrows()
                 ])
                 st.markdown(counts_str)
+            else:
+                st.markdown(f"#### {sel_day} 0 sites")
                 
             if sel.empty:
                 st.info("No flapping records on this day")
