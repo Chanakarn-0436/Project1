@@ -587,7 +587,8 @@ if original_menu == "Home":
                             df_optical=st.session_state["osc_data"].copy(),
                             df_fm=st.session_state["fm_data"].copy(),
                             threshold=2.0,
-                            ref_path="data/Flapping.xlsx"
+                            ref_path="data/Flapping.xlsx",
+                            debug=True  # เปิด debug mode
                         )
                         analyzer.prepare()
                         st.session_state["fiberflapping_analyzer"] = analyzer
@@ -844,7 +845,8 @@ elif original_menu == "Fiber Flapping":
                 df_optical=df_osc.copy(),
                 df_fm=df_fm.copy(),
                 threshold=2.0,   # คงเดิม
-                ref_path="data/Flapping.xlsx"  # ใช้ชื่อไฟล์ตัวใหญ่ และมี fallback ภายใน
+                ref_path="data/Flapping.xlsx",  # ใช้ชื่อไฟล์ตัวใหญ่ และมี fallback ภายใน
+                debug=True  # เปิด debug mode
             )
             analyzer.process()
             st.caption(

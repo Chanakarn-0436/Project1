@@ -152,6 +152,39 @@ class FiberflappingAnalyzer:
             variations.append(me_name + '_R')
         
         return variations
+    
+    def _is_me_in_link(self, me_variations: list, link: str) -> bool:
+        """
+        ตรวจสอบว่า ME อยู่ใน Link หรือไม่ (ใช้ word boundary)
+        
+        Args:
+            me_variations: list of ME variations
+            link: Link string
+            
+        Returns:
+            True ถ้า ME อยู่ใน Link
+        """
+        link_upper = link.upper()
+        for me_var in me_variations:
+            me_upper = me_var.upper()
+            if me_upper in link_upper:
+                # ตรวจสอบว่าเป็น word boundary (ไม่ใช่ substring ของคำอื่น)
+                idx = link_upper.find(me_upper)
+                # ตรวจสอบตัวอักษรก่อนหน้า (ถ้ามี)
+                if idx > 0:
+                    prev_char = link_upper[idx - 1]
+                    if prev_char.isalnum() or prev_char == '_':
+                        # ถ้าตัวก่อนหน้าเป็นตัวอักษร/ตัวเลข/_ แสดงว่าเป็น substring
+                        continue
+                # ตรวจสอบตัวอักษรถัดไป (ถ้ามี)
+                end_idx = idx + len(me_upper)
+                if end_idx < len(link_upper):
+                    next_char = link_upper[end_idx]
+                    if next_char.isalnum():
+                        # ถ้าตัวถัดไปเป็นตัวอักษร/ตัวเลข แสดงว่าเป็น substring
+                        continue
+                return True
+        return False
 
     def find_nomatch(self, df_filtered: pd.DataFrame, df_fm_norm: pd.DataFrame, link_col: str) -> pd.DataFrame:
         """
@@ -166,6 +199,7 @@ class FiberflappingAnalyzer:
         """
         result_rows = []
         filtered_count = 0  # นับจำนวนที่ถูกกรองออก
+        kept_count = 0  # นับจำนวนที่เก็บไว้
         
         for idx, row in df_filtered.iterrows():
             me_raw = str(row.get("ME", "")).strip()
@@ -194,11 +228,9 @@ class FiberflappingAnalyzer:
                 if pd.isna(occur_time):
                     continue
                 
-                # ✅ ตรวจสอบว่า Link มี ME variation ใดๆ
-                has_me = any(var in link_val for var in me_variations)
-                
-                # ✅ ตรวจสอบว่า Link มี Target ME variation ใดๆ
-                has_target = any(var in link_val for var in target_variations)
+                # ✅ ตรวจสอบว่า Link มี ME และ Target ME (ใช้ word boundary)
+                has_me = self._is_me_in_link(me_variations, link_val)
+                has_target = self._is_me_in_link(target_variations, link_val)
                 
                 if has_me and has_target:
                     # ✅ ตรวจสอบช่วงเวลา overlap
@@ -218,10 +250,15 @@ class FiberflappingAnalyzer:
             # ✅ ถ้าไม่ใช่ Fiber Cut → เก็บเป็น Fiber Flapping
             if not is_fiber_cut:
                 result_rows.append(row)
+                kept_count += 1
+                if self.debug and kept_count <= 3:  # แสดงแค่ 3 ตัวอย่างแรก
+                    st.write(f"✅ Kept as Fiber Flapping #{kept_count}: ME={me_raw}, Target={target_me_raw}")
             else:
                 filtered_count += 1
-                if self.debug:
-                    st.write(f"🔴 Filtered as Fiber Cut: ME={me_raw}, Target={target_me_raw}, Link={matched_link}")
+                if self.debug and filtered_count <= 3:  # แสดงแค่ 3 ตัวอย่างแรก
+                    st.write(f"🔴 Filtered as Fiber Cut #{filtered_count}: ME={me_raw}, Target={target_me_raw}")
+                    if matched_link:
+                        st.caption(f"   Link: {matched_link[:100]}...")
         
         if self.debug:
             st.info(f"📊 Fiber Cut Filtering: {filtered_count} records filtered out, {len(result_rows)} Fiber Flapping kept")
