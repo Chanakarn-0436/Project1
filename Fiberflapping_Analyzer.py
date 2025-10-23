@@ -119,27 +119,34 @@ class FiberflappingAnalyzer:
 
     def _is_fiber_cut(self, me: str, begin_t: pd.Timestamp, df_fm: pd.DataFrame) -> bool:
         """
-        ตรวจสอบว่า ME นี้มี fiber cut event ในวันเดียวกับ begin_t หรือไม่
-        - ME: ชื่อ site
-        - begin_t: เวลาเริ่มต้น flapping
-        - df_fm: DataFrame ของ FM Alarm (fiber cut)
+        ตรวจสอบว่า ME นี้มี fiber cut event ที่ตรงกับช่วงเวลา flapping หรือไม่
         
-        Returns True ถ้าเจอ fiber cut ที่ตรงกับ ME และวันเดียวกัน
+        Logic:
+        1. ถ้า ME ไม่มีใน fm → ไม่ใช่ fiber cut (return False)
+        2. ถ้า ME มีใน fm → ตรวจสอบว่า begin_t อยู่ในช่วง Occurrence-Clear Time หรือไม่
+           - ถ้าอยู่ในช่วง → เป็น fiber cut (return True)
+           - ถ้าไม่อยู่ในช่วง → ไม่ใช่ fiber cut (return False)
+        
+        Args:
+            me: ชื่อ site (ME)
+            begin_t: เวลาเริ่มต้น flapping
+            df_fm: DataFrame ของ FM Alarm (fiber cut)
+        
+        Returns:
+            True ถ้าเป็น fiber cut (ควรกรองออก), False ถ้าเป็น fiber flapping (ควรเก็บไว้)
         """
         if pd.isna(begin_t) or df_fm.empty:
             return False
-        
-        # กรอง FM data เฉพาะวันเดียวกันกับ begin_t
-        begin_date = begin_t.date()
         
         # Filter FM records ที่มี ME ตรงกัน
         me_str = str(me)
         fm_same_me = df_fm[df_fm["ME"].astype(str) == me_str].copy()
         
+        # ถ้า ME ไม่มีใน fm → ไม่ใช่ fiber cut
         if fm_same_me.empty:
             return False
         
-        # ตรวจสอบว่ามี fiber cut ที่เกิดในวันเดียวกันหรือไม่
+        # ถ้า ME มีใน fm → ตรวจสอบว่า begin_t อยู่ในช่วง Occurrence-Clear Time หรือไม่
         for _, fm_row in fm_same_me.iterrows():
             occur_time = fm_row.get("Occurrence Time", pd.NaT)
             clear_time = fm_row.get("Clear Time", pd.NaT)
@@ -147,15 +154,17 @@ class FiberflappingAnalyzer:
             if pd.isna(occur_time):
                 continue
             
-            # เช็คว่า Occurrence Time อยู่ในวันเดียวกันกับ begin_t หรือไม่
-            if occur_time.date() == begin_date:
-                # ถ้า clear_time อยู่ในวันเดียวกัน หรือยังไม่มี clear_time ก็ถือว่าเป็น fiber cut
-                if pd.isna(clear_time) or clear_time.date() == begin_date:
-                    return True
-                # ถ้า fiber cut ยังไม่ clear แต่เริ่มในวันนี้ก็ถือว่าเป็น fiber cut
-                if clear_time.date() > begin_date:
-                    return True
+            # ตรวจสอบว่า begin_t อยู่ในช่วง Occurrence-Clear Time หรือไม่
+            # Case 1: ถ้ามี clear_time และ begin_t อยู่ระหว่าง occur_time และ clear_time
+            if pd.notna(clear_time):
+                if occur_time <= begin_t <= clear_time:
+                    return True  # อยู่ในช่วง fiber cut → กรองออก
+            # Case 2: ถ้ายังไม่มี clear_time และ begin_t >= occur_time
+            else:
+                if begin_t >= occur_time:
+                    return True  # fiber cut ยังไม่ clear และเกิดหลัง occur_time → กรองออก
         
+        # ถ้าไม่อยู่ในช่วงใดๆ → ไม่ใช่ fiber cut
         return False
 
     def find_nomatch(self, df_filtered: pd.DataFrame, df_fm_norm: pd.DataFrame, link_col: str) -> pd.DataFrame:
