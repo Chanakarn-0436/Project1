@@ -117,83 +117,82 @@ class FiberflappingAnalyzer:
     def filter_optical_by_threshold(self, df_optical_norm: pd.DataFrame) -> pd.DataFrame:
         return df_optical_norm[df_optical_norm["Max - Min (dB)"] > self.threshold].copy()
 
-    def _is_fiber_cut(self, me: str, begin_t: pd.Timestamp, df_fm: pd.DataFrame) -> bool:
+    def _check_time_overlap(self, begin_t: pd.Timestamp, end_t: pd.Timestamp, 
+                           occur_time: pd.Timestamp, clear_time: pd.Timestamp) -> bool:
         """
-        ตรวจสอบว่า ME นี้มี fiber cut event ที่ตรงกับช่วงเวลา flapping หรือไม่
-        
-        Logic:
-        1. ถ้า ME ไม่มีใน fm → ไม่ใช่ fiber cut (return False)
-        2. ถ้า ME มีใน fm → ตรวจสอบว่า begin_t อยู่ในช่วง Occurrence-Clear Time หรือไม่
-           - ถ้าอยู่ในช่วง → เป็น fiber cut (return True)
-           - ถ้าไม่อยู่ในช่วง → ไม่ใช่ fiber cut (return False)
-        
-        Args:
-            me: ชื่อ site (ME)
-            begin_t: เวลาเริ่มต้น flapping
-            df_fm: DataFrame ของ FM Alarm (fiber cut)
+        ตรวจสอบว่าช่วงเวลา flapping (begin_t, end_t) อยู่ในช่วงเวลา alarm (occur_time, clear_time) หรือไม่
         
         Returns:
-            True ถ้าเป็น fiber cut (ควรกรองออก), False ถ้าเป็น fiber flapping (ควรเก็บไว้)
+            True ถ้าอยู่ในช่วงเวลา alarm (เป็น fiber cut)
+            False ถ้าไม่อยู่ในช่วงเวลา alarm (เป็น fiber flapping)
         """
-        if pd.isna(begin_t) or df_fm.empty:
+        if pd.isna(occur_time) or pd.isna(begin_t):
             return False
         
-        # Filter FM records ที่มี ME ตรงกัน
-        me_str = str(me)
-        fm_same_me = df_fm[df_fm["ME"].astype(str) == me_str].copy()
-        
-        # ถ้า ME ไม่มีใน fm → ไม่ใช่ fiber cut
-        if fm_same_me.empty:
-            return False
-        
-        # ถ้า ME มีใน fm → ตรวจสอบว่า begin_t อยู่ในช่วง Occurrence-Clear Time หรือไม่
-        for _, fm_row in fm_same_me.iterrows():
-            occur_time = fm_row.get("Occurrence Time", pd.NaT)
-            clear_time = fm_row.get("Clear Time", pd.NaT)
-            
-            if pd.isna(occur_time):
-                continue
-            
-            # ตรวจสอบว่า begin_t อยู่ในช่วง Occurrence-Clear Time หรือไม่
-            # Case 1: ถ้ามี clear_time และ begin_t อยู่ระหว่าง occur_time และ clear_time
-            if pd.notna(clear_time):
-                if occur_time <= begin_t <= clear_time:
-                    return True  # อยู่ในช่วง fiber cut → กรองออก
-            # Case 2: ถ้ายังไม่มี clear_time และ begin_t >= occur_time
+        # ถ้ามี clear_time ให้เช็กว่า begin_t อยู่ระหว่าง occur_time และ clear_time
+        if pd.notna(clear_time):
+            # เช็กว่ามีส่วนที่ overlap กันหรือไม่
+            # overlap เกิดเมื่อ: begin_t <= clear_time และ end_t >= occur_time
+            if pd.notna(end_t):
+                return begin_t <= clear_time and end_t >= occur_time
             else:
-                if begin_t >= occur_time:
-                    return True  # fiber cut ยังไม่ clear และเกิดหลัง occur_time → กรองออก
-        
-        # ถ้าไม่อยู่ในช่วงใดๆ → ไม่ใช่ fiber cut
-        return False
+                return begin_t <= clear_time and begin_t >= occur_time
+        else:
+            # ถ้ายังไม่มี clear_time ให้เช็กว่า begin_t >= occur_time
+            return begin_t >= occur_time
 
     def find_nomatch(self, df_filtered: pd.DataFrame, df_fm_norm: pd.DataFrame, link_col: str) -> pd.DataFrame:
         """
-        หาแถวใน df_filtered ที่ 'ไม่เจอ' alarm match:
-          - Link column ใน FM ต้อง contains ทั้ง ME และ Target ME
-          - และช่วงเวลา overlap: Occurrence <= End และ Clear >= Begin
-          - และกรอง fiber cut ออก (ME ที่มี fiber cut event ในวันเดียวกัน)
+        หาแถวใน df_filtered ที่เป็น Fiber Flapping (ไม่ใช่ Fiber Cut):
+        
+        Logic ใหม่:
+        1. ดูจาก ME (ต้นทาง) และ Target ME (ปลายทาง - extract จาก Measure Object)
+        2. Map กับ Link ใน FM Alarm
+        3. เช็กว่าช่วงเวลาของ optical flapping อยู่ในช่วงเวลา alarm หรือไม่
+           - ถ้าไม่อยู่ในช่วง → Fiber Flapping (เก็บไว้)
+           - ถ้าอยู่ในช่วง → Fiber Cut (กรองออก)
+        
+        Note: ต้นทาง-ปลายทาง อาจสลับกันได้ ต้องเช็กทั้ง 2 ทาง
         """
         result_rows = []
+        
         for _, row in df_filtered.iterrows():
-            me = re.escape(str(row.get("ME", "")))
-            target_me = re.escape(str(row.get("Target ME", "")))
+            me = str(row.get("ME", ""))
+            target_me = str(row.get("Target ME", ""))
             begin_t = row.get("Begin Time", pd.NaT)
             end_t = row.get("End Time", pd.NaT)
-
-            # เงื่อนไขเวลา (ถ้า NaT จะไม่ match)
-            matched = df_fm_norm[
-                df_fm_norm[link_col].astype(str).str.contains(me, na=False)
-                & df_fm_norm[link_col].astype(str).str.contains(target_me, na=False)
-                & (df_fm_norm["Occurrence Time"] <= end_t)
-                & (df_fm_norm["Clear Time"] >= begin_t)
+            
+            if not me or not target_me or pd.isna(begin_t):
+                continue
+            
+            # หา FM alarms ที่ Link contains ทั้ง ME และ Target ME (ไม่สนใจลำดับ)
+            me_escaped = re.escape(me)
+            target_escaped = re.escape(target_me)
+            
+            matched_alarms = df_fm_norm[
+                (df_fm_norm[link_col].astype(str).str.contains(me_escaped, na=False) &
+                 df_fm_norm[link_col].astype(str).str.contains(target_escaped, na=False))
             ]
-
-            if matched.empty:
-                # ตรวจสอบว่าเป็น fiber cut หรือไม่
-                me_raw = str(row.get("ME", ""))
-                if not self._is_fiber_cut(me_raw, begin_t, df_fm_norm):
-                    result_rows.append(row)
+            
+            # ถ้าไม่เจอ Link ที่ match เลย → เป็น Fiber Flapping
+            if matched_alarms.empty:
+                result_rows.append(row)
+                continue
+            
+            # ถ้าเจอ Link ที่ match → เช็กว่าช่วงเวลาตรงกันหรือไม่
+            is_fiber_cut = False
+            for _, alarm in matched_alarms.iterrows():
+                occur_time = alarm.get("Occurrence Time", pd.NaT)
+                clear_time = alarm.get("Clear Time", pd.NaT)
+                
+                # ถ้าช่วงเวลา overlap กัน → เป็น Fiber Cut
+                if self._check_time_overlap(begin_t, end_t, occur_time, clear_time):
+                    is_fiber_cut = True
+                    break
+            
+            # ถ้าไม่ overlap กับ alarm ใดๆ → เป็น Fiber Flapping
+            if not is_fiber_cut:
+                result_rows.append(row)
 
         return pd.DataFrame(result_rows)
 
