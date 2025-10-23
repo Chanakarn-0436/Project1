@@ -660,11 +660,33 @@ class SummaryTableReport:
                             df_day = df_with_date[df_with_date["Date"] == date].copy()
                             num_sites = df_day["ME"].nunique() if "ME" in df_day.columns else len(df_day)
                             
-                            # หัวข้อวัน
-                            st.markdown(f"**{date} ({num_sites} sites)**")
+                            # สรุปจำนวน flapping ต่อ Site Name เรียงจากมากไปน้อย
+                            site_counts_str = ""
+                            if not df_day.empty and "Site Name" in df_day.columns:
+                                counts = df_day["Site Name"].value_counts().reset_index()
+                                counts.columns = ["Site Name", "Count"]
+                                
+                                # สร้างข้อความรวมในบรรทัดเดียว เช่น Jasmine_Z-E33 (3 links)
+                                site_counts_str = " ".join([
+                                    f"{r['Site Name']} ({r['Count']} link{'s' if r['Count'] > 1 else ''})"
+                                    for _, r in counts.iterrows()
+                                ])
+                            
+                            # หัวข้อวัน + รายชื่อไซต์
+                            st.markdown(f"**{date} ({num_sites} sites)** {site_counts_str}")
                             
                             # เลือกคอลัมน์ที่จะแสดง
                             df_show = df_day[[c for c in cols_to_show if c in df_day.columns]].copy()
+                            
+                            # แปลงคอลัมน์ตัวเลขเป็น numeric
+                            numeric_cols = [
+                                "Max Value of Input Optical Power(dBm)",
+                                "Min Value of Input Optical Power(dBm)",
+                                "Max - Min (dB)"
+                            ]
+                            for col in numeric_cols:
+                                if col in df_show.columns:
+                                    df_show[col] = pd.to_numeric(df_show[col], errors="coerce")
                             
                             # Highlight Max - Min (dB) > 2.0
                             def hl_flapping(val):
@@ -675,7 +697,14 @@ class SummaryTableReport:
                                     pass
                                 return ""
                             
-                            styled = df_show.style.applymap(hl_flapping, subset=["Max - Min (dB)"] if "Max - Min (dB)" in df_show.columns else [])
+                            # Format ทศนิยม 2 ตำแหน่ง
+                            format_dict = {col: "{:.2f}" for col in numeric_cols if col in df_show.columns}
+                            
+                            styled = (
+                                df_show.style
+                                .applymap(hl_flapping, subset=["Max - Min (dB)"] if "Max - Min (dB)" in df_show.columns else [])
+                                .format(format_dict, na_rep="-")
+                            )
                             st.dataframe(styled, use_container_width=True, height=min(len(df_show) * 35 + 38, 400))
                             
                             # เว้นบรรทัดระหว่างวัน

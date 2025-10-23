@@ -193,6 +193,93 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
 
         elements.append(Paragraph(f"{section_name} Performance", section_title_left))
 
+        # ===== Special handling for Fiber Flapping (group by date) =====
+        if section_name == "Fiber":
+            # รวม DataFrame จากทุก subtype
+            all_fiber_df = []
+            for subtype, df in abn_dict.items():
+                if isinstance(df, pd.DataFrame) and not df.empty:
+                    all_fiber_df.append(df)
+            
+            if all_fiber_df:
+                df_all = pd.concat(all_fiber_df, ignore_index=True)
+                df_all["Date"] = pd.to_datetime(df_all["Begin Time"]).dt.date
+                
+                # เรียงตามวัน (เก่า -> ใหม่)
+                dates_sorted = sorted(df_all["Date"].unique())
+                
+                for date in dates_sorted:
+                    df_day = df_all[df_all["Date"] == date].copy()
+                    num_sites = df_day["ME"].nunique() if "ME" in df_day.columns else len(df_day)
+                    
+                    # สรุปจำนวน flapping ต่อ Site Name เรียงจากมากไปน้อย
+                    site_counts_str = ""
+                    if not df_day.empty and "Site Name" in df_day.columns:
+                        counts = df_day["Site Name"].value_counts().reset_index()
+                        counts.columns = ["Site Name", "Count"]
+                        
+                        # สร้างข้อความรวมในบรรทัดเดียว เช่น Jasmine_Z-E33 (3 links)
+                        site_counts_str = " ".join([
+                            f"{row['Site Name']} ({row['Count']} link{'s' if row['Count'] > 1 else ''})"
+                            for _, row in counts.iterrows()
+                        ])
+                    
+                    # หัวข้อวัน + รายชื่อไซต์
+                    title_text = f"Fiber Flapping – {date} ({num_sites} sites) {site_counts_str}"
+                    elements.append(Paragraph(title_text, section_title_left))
+                    elements.append(Spacer(1, 6))
+                    
+                    df_show = df_day.copy()
+                    
+                    # เลือกคอลัมน์
+                    cols_to_show = [
+                        "Begin Time", "End Time", "Site Name", "ME", "Measure Object",
+                        "Max Value of Input Optical Power(dBm)",
+                        "Min Value of Input Optical Power(dBm)",
+                        "Input Optical Power(dBm)", "Max - Min (dB)"
+                    ]
+                    df_show = df_show[[c for c in cols_to_show if c in df_show.columns]]
+                    
+                    # แปลงคอลัมน์ตัวเลขและ format ทศนิยม 2 ตำแหน่ง
+                    numeric_cols = [
+                        "Max Value of Input Optical Power(dBm)",
+                        "Min Value of Input Optical Power(dBm)",
+                        "Input Optical Power(dBm)", 
+                        "Max - Min (dB)"
+                    ]
+                    for col in numeric_cols:
+                        if col in df_show.columns:
+                            df_show[col] = pd.to_numeric(df_show[col], errors="coerce").round(2)
+                    
+                    # Build table
+                    if not df_show.empty:
+                        table_data = _df_to_wrapped_table(df_show, ParagraphStyle("Tbl", parent=styles["Normal"], fontSize=8, leading=11))
+                        table = Table(table_data, repeatRows=1)
+                        
+                        style_cmds = [
+                            ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+                            ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+                            ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                            ("FONTSIZE", (0, 0), (-1, -1), 8),
+                            ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
+                            ("GRID", (0, 0), (-1, -1), 0.25, colors.black),
+                            ("WORDWRAP", (0, 0), (-1, -1), True),
+                        ]
+                        
+                        # Highlight Max - Min (dB)
+                        if "Max - Min (dB)" in cols_to_show:
+                            col_idx = cols_to_show.index("Max - Min (dB)")
+                            if col_idx < len(df_show.columns):
+                                style_cmds.append(("BACKGROUND", (col_idx, 1), (col_idx, -1), light_red))
+                                style_cmds.append(("TEXTCOLOR", (col_idx, 1), (col_idx, -1), text_black))
+                        
+                        table.setStyle(TableStyle(style_cmds))
+                        elements.append(table)
+                        elements.append(Spacer(1, 18))
+            continue  # Skip normal processing for Fiber
+
         for subtype, df in abn_dict.items():
             if not isinstance(df, pd.DataFrame) or df.empty:
                 continue
@@ -248,15 +335,6 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
                     "Maximum threshold(out)", "Minimum threshold(out)", "Output Optical Power (dBm)",
                     "Maximum threshold(in)", "Minimum threshold(in)", "Input Optical Power(dBm)",
                     "Route"
-                ]
-                df_show = df_show[[c for c in cols_to_show if c in df_show.columns]]
-
-            elif section_name == "Fiber":
-                cols_to_show = [
-                    "Begin Time", "End Time", "Site Name", "ME", "Measure Object",
-                    "Max Value of Input Optical Power(dBm)",
-                    "Min Value of Input Optical Power(dBm)",
-                    "Input Optical Power(dBm)", "Max - Min (dB)"
                 ]
                 df_show = df_show[[c for c in cols_to_show if c in df_show.columns]]
 
@@ -392,12 +470,6 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
                                 style_cmds.append(("TEXTCOLOR", (cidx, ridx+1), (cidx, ridx+1), text_black))
                     except:
                         pass
-
-            elif section_name == "Fiber" and "Max - Min (dB)" in cols_to_show:
-                col_idx = cols_to_show.index("Max - Min (dB)")
-                if col_idx < len(df_show.columns):
-                    style_cmds.append(("BACKGROUND", (col_idx, 1), (col_idx, -1), light_red))
-                    style_cmds.append(("TEXTCOLOR", (col_idx, 1), (col_idx, -1), text_black))
 
             elif section_name == "EOL" and "Loss current - Loss EOL" in cols_to_show:
                 col_idx = cols_to_show.index("Loss current - Loss EOL")
