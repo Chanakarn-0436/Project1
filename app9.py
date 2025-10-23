@@ -275,8 +275,11 @@ def create_menu_with_indicators():
 menu_options = create_menu_with_indicators()
 menu = st.sidebar.radio("Select Activity", menu_options)
 
-# แปลงกลับเป็นชื่อเมนูเดิม (ลบจุดสีแดงออก)
-original_menu = menu.replace("🔴 ", "") if "🔴 " in menu else menu
+# แปลงกลับเป็นชื่อเมนูเดิม (ลบจุดสีแดงและตัวเลข count ออก)
+# ตัวอย่าง: "🔴 Fiber Flapping (33)" → "Fiber Flapping"
+original_menu = re.sub(r"🔴 (.+?) \(\d+\)", r"\1", menu)  # ลบ emoji + count
+if original_menu == menu:  # ถ้ายังไม่เปลี่ยน แสดงว่าไม่มี count
+    original_menu = menu.replace("🔴 ", "") if "🔴 " in menu else menu
 
 
 # ====== หน้าแรก (Calendar Upload + Run Analysis + Delete) ======
