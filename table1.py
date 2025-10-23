@@ -845,7 +845,7 @@ class SummaryTableReport:
                         st.info("No APO remnant data to display")
 
             elif status == "Normal":
-                st.info(f"✅ All {task_name} values are within normal range.")
+                st.info(f"✅ All {task_name} normal ")
             else:
                 st.warning(f"⚠️ No {task_name} data available.")
         

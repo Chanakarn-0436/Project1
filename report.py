@@ -1,7 +1,7 @@
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak
 )
 from reportlab.lib import colors
 from reportlab.lib.colors import HexColor
@@ -101,26 +101,26 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
 
     styles = getSampleStyleSheet()
 
-    # ===== Custom Styles =====
+    # ===== Custom Styles (ตัวหนังสือใหญ่ขึ้น) =====
     title_center = ParagraphStyle(
         "TitleCenter", parent=styles["Heading1"], alignment=1, spaceAfter=20,
-        fontSize=24, textColor=HexColor("#1f77b4")
+        fontSize=28, textColor=HexColor("#1f77b4")  # เพิ่มจาก 24 → 28
     )
     date_center = ParagraphStyle(
         "DateCenter", parent=styles["Normal"], alignment=1, spaceAfter=12,
-        fontSize=12, textColor=HexColor("#666666")
+        fontSize=14, textColor=HexColor("#666666")  # เพิ่มจาก 12 → 14
     )
     section_title_left = ParagraphStyle(
         "SectionTitleLeft", parent=styles["Heading2"], alignment=0, spaceAfter=6,
-        fontSize=16, textColor=HexColor("#2c3e50")
+        fontSize=20, textColor=HexColor("#2c3e50")  # เพิ่มจาก 16 → 20
     )
     normal_left = ParagraphStyle(
         "NormalLeft", parent=styles["Normal"], alignment=0, spaceAfter=12,
-        fontSize=10
+        fontSize=12  # เพิ่มจาก 10 → 12
     )
     summary_style = ParagraphStyle(
         "SummaryStyle", parent=styles["Normal"], alignment=1, spaceAfter=20,
-        fontSize=14, textColor=HexColor("#27ae60")
+        fontSize=16, textColor=HexColor("#27ae60")  # เพิ่มจาก 14 → 16
     )
 
     elements = []
@@ -133,7 +133,7 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
     # ===== Summary Table (replace Executive Summary) =====
     elements.append(Paragraph("Summary Table", section_title_left))
 
-    base_para = ParagraphStyle("Cell", parent=styles["Normal"], fontSize=9, leading=12)
+    base_para = ParagraphStyle("Cell", parent=styles["Normal"], fontSize=11, leading=14)  # เพิ่มจาก 9 → 11
     base_para.alignment = 0  # left
 
     summary_rows = _build_summary_rows(all_abnormal)
@@ -158,14 +158,19 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
         ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, 0), 9),
+        ("FONTSIZE", (0, 0), (-1, 0), 12),  # เพิ่มจาก 9 → 12
         ("ALIGN", (0, 0), (-1, -1), "LEFT"),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("GRID", (0, 0), (-1, -1), 0.25, colors.black),
-        ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 8),  # เพิ่ม padding
+        ("TOPPADDING", (0, 0), (-1, -1), 6),     # เพิ่ม padding
+        ("BOTTOMPADDING", (0, 1), (-1, -1), 6),  # เพิ่ม padding
     ]))
     elements.append(summary_tbl)
     elements.append(Spacer(1, 18))
+    
+    # ===== Page Break หลัง Summary Table (หน้าแรกมีแค่ summary) =====
+    elements.append(PageBreak())
 
     # ===== Sections (CPU มาก่อน FAN) =====
     section_order = ["CPU", "FAN", "MSU", "Line", "Client", "Fiber", "EOL", "Core"]
@@ -253,7 +258,7 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
                     
                     # Build table
                     if not df_show.empty:
-                        table_data = _df_to_wrapped_table(df_show, ParagraphStyle("Tbl", parent=styles["Normal"], fontSize=8, leading=11))
+                        table_data = _df_to_wrapped_table(df_show, ParagraphStyle("Tbl", parent=styles["Normal"], fontSize=10, leading=13))  # เพิ่มจาก 8 → 10
                         table = Table(table_data, repeatRows=1)
                         
                         style_cmds = [
@@ -262,7 +267,7 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
                             ("ALIGN", (0, 0), (-1, -1), "LEFT"),
                             ("VALIGN", (0, 0), (-1, -1), "TOP"),
                             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                            ("FONTSIZE", (0, 0), (-1, -1), 8),
+                            ("FONTSIZE", (0, 0), (-1, -1), 10),  # เพิ่มจาก 8 → 10
                             ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
                             ("GRID", (0, 0), (-1, -1), 0.25, colors.black),
                             ("WORDWRAP", (0, 0), (-1, -1), True),
@@ -359,7 +364,7 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
                 continue
 
             # Convert to wrapped Paragraph cells so long text breaks into new lines
-            table_data = _df_to_wrapped_table(df_show, ParagraphStyle("Tbl", parent=styles["Normal"], fontSize=8, leading=11))
+            table_data = _df_to_wrapped_table(df_show, ParagraphStyle("Tbl", parent=styles["Normal"], fontSize=10, leading=13))  # เพิ่มจาก 8 → 10
             table = Table(table_data, repeatRows=1)
 
             style_cmds = [
@@ -368,7 +373,7 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
                 ("ALIGN", (0, 0), (-1, -1), "LEFT"),
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("FONTSIZE", (0, 0), (-1, -1), 8),
+                ("FONTSIZE", (0, 0), (-1, -1), 10),  # เพิ่มจาก 8 → 10
                 ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
                 ("GRID", (0, 0), (-1, -1), 0.25, colors.black),
                 ("WORDWRAP", (0, 0), (-1, -1), True),

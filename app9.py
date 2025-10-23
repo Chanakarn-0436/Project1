@@ -588,7 +588,7 @@ if original_menu == "Home":
                             df_fm=st.session_state["fm_data"].copy(),
                             threshold=2.0,
                             ref_path="data/Flapping.xlsx",
-                            debug=True  # เปิด debug mode
+                            debug=False  # ปิด debug mode (เปลี่ยนเป็น True เพื่อดู debug info)
                         )
                         analyzer.prepare()
                         st.session_state["fiberflapping_analyzer"] = analyzer
@@ -846,7 +846,7 @@ elif original_menu == "Fiber Flapping":
                 df_fm=df_fm.copy(),
                 threshold=2.0,   # คงเดิม
                 ref_path="data/Flapping.xlsx",  # ใช้ชื่อไฟล์ตัวใหญ่ และมี fallback ภายใน
-                debug=True  # เปิด debug mode
+                debug=False  # ปิด debug mode (เปลี่ยนเป็น True เพื่อดู debug info)
             )
             analyzer.process()
             st.caption(
@@ -1308,22 +1308,61 @@ elif original_menu == "Dashboard":
                 c[2].metric("Input Abnormal", f"{in_abn}")
                 c[3].metric("Output Abnormal", f"{out_abn}")
 
-                # Preset quick card
-                preset_mask = merged.get("Route", pd.Series([], dtype=object)).astype(str).str.startswith("Preset")
-                preset_total = int(preset_mask.sum())
-                preset_df = merged.loc[preset_mask].copy()
-                p_ber_abn = int(((pd.to_numeric(preset_df.get("Instant BER After FEC"), errors="coerce") > pd.to_numeric(preset_df.get("Threshold"), errors="coerce"))).sum())
-                p_in_abn = int(((pd.to_numeric(preset_df.get("Input Optical Power(dBm)"), errors="coerce") < pd.to_numeric(preset_df.get("Minimum threshold(in)"), errors="coerce")) |
-                                (pd.to_numeric(preset_df.get("Input Optical Power(dBm)"), errors="coerce") > pd.to_numeric(preset_df.get("Maximum threshold(in)"), errors="coerce"))).sum())
-                p_out_abn = int(((pd.to_numeric(preset_df.get("Output Optical Power (dBm)"), errors="coerce") < pd.to_numeric(preset_df.get("Minimum threshold(out)"), errors="coerce")) |
-                                 (pd.to_numeric(preset_df.get("Output Optical Power (dBm)"), errors="coerce") > pd.to_numeric(preset_df.get("Maximum threshold(out)"), errors="coerce"))).sum())
-
+                # Preset Status Analysis - ดึงข้อมูลจาก preset_analyzer
                 st.markdown("#### Preset")
-                pc = st.columns(4)
-                pc[0].metric("Preset Total", f"{preset_total}")
-                pc[1].metric("BER Abn (Preset)", f"{p_ber_abn}")
-                pc[2].metric("Input Abn (Preset)", f"{p_in_abn}")
-                pc[3].metric("Output Abn (Preset)", f"{p_out_abn}")
+                
+                # ดึงข้อมูลจาก preset_analyzer ใน session_state
+                preset_analyzer = st.session_state.get("preset_analyzer")
+                
+                # สร้าง preset_df สำหรับใช้ในส่วนอื่น
+                preset_mask = merged.get("Route", pd.Series([], dtype=object)).astype(str).str.startswith("Preset")
+                preset_df = merged.loc[preset_mask].copy()
+                
+                if preset_analyzer:
+                    # ใช้ข้อมูลจาก Preset Status Analysis
+                    _, summary = preset_analyzer.to_dataframe()
+                    preset_total = int(summary.get("total", 0))
+                    preset_success = int(summary.get("passes", 0))
+                    preset_abnormal = int(summary.get("fails", 0))
+                else:
+                    # Fallback: ถ้าไม่มี analyzer ให้คำนวณจาก preset_df
+                    if not preset_df.empty:
+                        # Extract PresetNo เพื่อนับจำนวน Preset ที่ unique
+                        preset_df_temp = preset_df.copy()
+                        preset_df_temp["PresetNo"] = preset_df_temp["Route"].astype(str).str.extract(r"Preset\s*(\d+)")
+                        
+                        # นับจำนวน Preset ที่ไม่ซ้ำกัน (ไม่ใช่แถว)
+                        preset_total = int(preset_df_temp["PresetNo"].nunique())
+                        
+                        # คำนวณ abnormal ต่อแถว
+                        pber = pd.to_numeric(preset_df_temp.get("Instant BER After FEC"), errors="coerce")
+                        pthr = pd.to_numeric(preset_df_temp.get("Threshold"), errors="coerce")
+                        pinv = pd.to_numeric(preset_df_temp.get("Input Optical Power(dBm)"), errors="coerce")
+                        pinL = pd.to_numeric(preset_df_temp.get("Minimum threshold(in)"), errors="coerce")
+                        pinH = pd.to_numeric(preset_df_temp.get("Maximum threshold(in)"), errors="coerce")
+                        pout = pd.to_numeric(preset_df_temp.get("Output Optical Power (dBm)"), errors="coerce")
+                        poutL = pd.to_numeric(preset_df_temp.get("Minimum threshold(out)"), errors="coerce")
+                        poutH = pd.to_numeric(preset_df_temp.get("Maximum threshold(out)"), errors="coerce")
+                        
+                        row_abn = (
+                            (pber.notna() & pthr.notna() & (pber > pthr)) |
+                            (pinv.notna() & pinL.notna() & pinH.notna() & ((pinv < pinL) | (pinv > pinH))) |
+                            (pout.notna() & poutL.notna() & poutH.notna() & ((pout < poutL) | (pout > poutH)))
+                        )
+                        preset_df_temp["IsAbnormal"] = row_abn
+                        
+                        # นับจำนวน Preset ที่มีอย่างน้อย 1 แถวที่ abnormal
+                        preset_abnormal = int(preset_df_temp.groupby("PresetNo")["IsAbnormal"].any().sum())
+                        preset_success = preset_total - preset_abnormal
+                    else:
+                        preset_total = 0
+                        preset_success = 0
+                        preset_abnormal = 0
+
+                pc = st.columns(3)
+                pc[0].metric("Preset Success", f"{preset_success}")
+                pc[1].metric("Preset Abnormal", f"{preset_abnormal}")
+                pc[2].metric("Total Preset Calls", f"{preset_total}")
 
                 # Preset usage table with status label (OK/Abnormal) per Preset
                 if not preset_df.empty:

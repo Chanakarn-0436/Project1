@@ -337,6 +337,15 @@ class Line_Analyzer:
         )
         st.caption(f"Line Performance (showing {len(df_filtered)}/{len(df_result)} rows)")
 
+        # 7.5) แปลงคอลัมน์ตัวเลขเป็น numeric ก่อนแสดงผล
+        df_filtered = df_filtered.copy()
+        numeric_cols = ["Instant BER After FEC", "Threshold", 
+                        self.col_in, self.col_out, 
+                        self.col_min_in, self.col_max_in, 
+                        self.col_min_out, self.col_max_out]
+        for col in numeric_cols:
+            if col in df_filtered.columns:
+                df_filtered[col] = pd.to_numeric(df_filtered[col], errors="coerce")
 
         # 8) สไตล์/ไฮไลต์ (ตารางดิบเพื่อการตรวจละเอียด)
         styled = self._style_dataframe(df_filtered.copy())
@@ -415,7 +424,25 @@ class Line_Analyzer:
         if self.col_out in df_view.columns:
             columns_to_show.extend([self.col_out, self.col_min_out, self.col_max_out])
         
-        fail_rows = df_view[mask_any_abnormal][columns_to_show]
+        fail_rows = df_view[mask_any_abnormal][columns_to_show].copy()
+        
+        # แปลงค่าเป็น numeric ก่อน format
+        if "Instant BER After FEC" in fail_rows.columns:
+            fail_rows["Instant BER After FEC"] = pd.to_numeric(fail_rows["Instant BER After FEC"], errors="coerce")
+        if "Threshold" in fail_rows.columns:
+            fail_rows["Threshold"] = pd.to_numeric(fail_rows["Threshold"], errors="coerce")
+        if self.col_in in fail_rows.columns:
+            fail_rows[self.col_in] = pd.to_numeric(fail_rows[self.col_in], errors="coerce")
+        if self.col_out in fail_rows.columns:
+            fail_rows[self.col_out] = pd.to_numeric(fail_rows[self.col_out], errors="coerce")
+        if self.col_min_in in fail_rows.columns:
+            fail_rows[self.col_min_in] = pd.to_numeric(fail_rows[self.col_min_in], errors="coerce")
+        if self.col_max_in in fail_rows.columns:
+            fail_rows[self.col_max_in] = pd.to_numeric(fail_rows[self.col_max_in], errors="coerce")
+        if self.col_min_out in fail_rows.columns:
+            fail_rows[self.col_min_out] = pd.to_numeric(fail_rows[self.col_min_out], errors="coerce")
+        if self.col_max_out in fail_rows.columns:
+            fail_rows[self.col_max_out] = pd.to_numeric(fail_rows[self.col_max_out], errors="coerce")
         
         st.markdown(f"**Problem Call IDs (BER/Input/Output abnormal)** - Found {len(fail_rows)} rows")
         
@@ -521,31 +548,51 @@ class Line_Analyzer:
         ok_out_cnt = int(ok_out.sum())
         fail_out_cnt = total_out - ok_out_cnt
 
-        # --- Preset Usage ---
-        if "Route" in df_view.columns:
-            mask_preset = df_view["Route"].astype(str).str.startswith("Preset")
+        # --- Preset Usage (ดึงจาก Preset Status Analysis) ---
+        preset_analyzer = st.session_state.get("preset_analyzer")
+        
+        if preset_analyzer:
+            # ใช้ข้อมูลจาก Preset Status Analysis
+            _, summary = preset_analyzer.to_dataframe()
+            preset_used = int(summary.get("total", 0))
+            preset_fail = int(summary.get("fails", 0))
         else:
-            mask_preset = pd.Series(False, index=df_view.index)
+            # Fallback: คำนวณจาก Line data
+            if "Route" in df_view.columns:
+                mask_preset = df_view["Route"].astype(str).str.startswith("Preset")
+            else:
+                mask_preset = pd.Series(False, index=df_view.index)
 
-        preset_rows = df_view[mask_preset]
-        preset_used = int(mask_preset.sum())
-        preset_fail = 0
+            preset_rows = df_view[mask_preset].copy()
+            preset_used = 0
+            preset_fail = 0
 
-        if not preset_rows.empty:
-            p_ber = pd.to_numeric(preset_rows.get("Instant BER After FEC"), errors="coerce")
-            p_thr = pd.to_numeric(preset_rows.get("Threshold"), errors="coerce")
-            p_vin = pd.to_numeric(preset_rows.get(self.col_in), errors="coerce")
-            p_min_in = pd.to_numeric(preset_rows.get(self.col_min_in), errors="coerce")
-            p_max_in = pd.to_numeric(preset_rows.get(self.col_max_in), errors="coerce")
-            p_vout = pd.to_numeric(preset_rows.get(self.col_out), errors="coerce")
-            p_min_out = pd.to_numeric(preset_rows.get(self.col_min_out), errors="coerce")
-            p_max_out = pd.to_numeric(preset_rows.get(self.col_max_out), errors="coerce")
+            if not preset_rows.empty:
+                # Extract Preset number จาก Route
+                preset_rows["PresetNo"] = preset_rows["Route"].astype(str).str.extract(r"Preset\s*(\d+)")
+                
+                # นับจำนวน Preset ที่ unique (ไม่นับแถว)
+                preset_used = int(preset_rows["PresetNo"].nunique())
+                
+                # คำนวณ abnormal status ต่อแถว
+                p_ber = pd.to_numeric(preset_rows.get("Instant BER After FEC"), errors="coerce")
+                p_thr = pd.to_numeric(preset_rows.get("Threshold"), errors="coerce")
+                p_vin = pd.to_numeric(preset_rows.get(self.col_in), errors="coerce")
+                p_min_in = pd.to_numeric(preset_rows.get(self.col_min_in), errors="coerce")
+                p_max_in = pd.to_numeric(preset_rows.get(self.col_max_in), errors="coerce")
+                p_vout = pd.to_numeric(preset_rows.get(self.col_out), errors="coerce")
+                p_min_out = pd.to_numeric(preset_rows.get(self.col_min_out), errors="coerce")
+                p_max_out = pd.to_numeric(preset_rows.get(self.col_max_out), errors="coerce")
 
-            p_fail_ber = (p_ber > p_thr)
-            p_fail_in = (p_vin < p_min_in) | (p_vin > p_max_in)
-            p_fail_out = (p_vout < p_min_out) | (p_vout > p_max_out)
-
-            preset_fail = int((p_fail_ber | p_fail_in | p_fail_out).sum())
+                p_fail_ber = (p_ber > p_thr)
+                p_fail_in = (p_vin < p_min_in) | (p_vin > p_max_in)
+                p_fail_out = (p_vout < p_min_out) | (p_vout > p_max_out)
+                
+                # แถวที่ abnormal
+                preset_rows["IsAbnormal"] = p_fail_ber | p_fail_in | p_fail_out
+                
+                # นับจำนวน Preset ที่มีอย่างน้อย 1 แถวที่ abnormal
+                preset_fail = int(preset_rows.groupby("PresetNo")["IsAbnormal"].any().sum())
 
         # ---------- Show KPI ----------
         cols = st.columns(4)
@@ -606,7 +653,13 @@ class Line_Analyzer:
         # เลือกคอลัมน์ที่จำเป็น
         columns_to_show = ["Site Name", "ME", "Call ID", "Measure Object", "Threshold", "Instant BER After FEC"]
         
-        fail_rows = df_view[mask_ber][columns_to_show]
+        fail_rows = df_view[mask_ber][columns_to_show].copy()
+        
+        # แปลงค่าเป็น numeric ก่อน format
+        if "Instant BER After FEC" in fail_rows.columns:
+            fail_rows["Instant BER After FEC"] = pd.to_numeric(fail_rows["Instant BER After FEC"], errors="coerce")
+        if "Threshold" in fail_rows.columns:
+            fail_rows["Threshold"] = pd.to_numeric(fail_rows["Threshold"], errors="coerce")
         
         if not fail_rows.empty:
             def highlight_ber_row(row):
