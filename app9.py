@@ -81,14 +81,23 @@ def list_files_by_date(upload_date: str):
     """ดึงรายการไฟล์ตามวันที่จาก Supabase"""
     files = supabase.get_files_by_date(upload_date)
     # แปลงเป็น format เดียวกับเดิม: [(id, orig_filename, stored_path), ...]
-    return [(f["id"], f["orig_filename"], f["stored_path"]) for f in files]
+    # แปลง ID เป็น integer เพื่อป้องกัน type error
+    return [(int(f["id"]), f["orig_filename"], f["stored_path"]) for f in files]
 
-def get_file_for_analysis(file_id: int):
+def get_file_for_analysis(file_id):
     """ดึงไฟล์สำหรับวิเคราะห์ (จาก Storage, Database, หรือดิสก์)"""
     if not supabase.is_connected():
         return None
     
     try:
+        # แปลง file_id เป็น integer ถ้าเป็น string
+        if isinstance(file_id, str):
+            if file_id.isdigit():
+                file_id = int(file_id)
+            else:
+                st.error(f"❌ Invalid file ID: {file_id}")
+                return None
+        
         # ดึงข้อมูลไฟล์
         result = supabase.supabase.table("uploads").select("*").eq("id", file_id).execute()
         if not result.data:

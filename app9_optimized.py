@@ -80,12 +80,20 @@ def save_file(upload_date: str, file, use_storage: bool = True):
     supabase.save_upload_record(upload_date, file.name, stored_path, storage_url)
 
 @performance_monitor
-def get_file_for_analysis(file_id: int):
+def get_file_for_analysis(file_id):
     """Optimized file retrieval with performance monitoring"""
     if not supabase.is_connected():
         return None
     
     try:
+        # แปลง file_id เป็น integer ถ้าเป็น string
+        if isinstance(file_id, str):
+            if file_id.isdigit():
+                file_id = int(file_id)
+            else:
+                st.error(f"❌ Invalid file ID: {file_id}")
+                return None
+        
         result = supabase.supabase.table("uploads").select("*").eq("id", file_id).execute()
         if not result.data:
             return None

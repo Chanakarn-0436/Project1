@@ -130,6 +130,7 @@ class Line_Analyzer:
         return df_merged
 
     def _apply_preset_route(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()  # สร้าง copy เพื่อป้องกัน SettingWithCopyWarning
         df["Call ID"] = df["Call ID"].astype(str).str.strip().str.lstrip("0")
         df["Route"]   = df.apply(
             lambda r: f"Preset {self.pmap[r['Call ID']]}" if r["Call ID"] in self.pmap else r["Route"],
@@ -459,14 +460,14 @@ class Line_Analyzer:
                     thr = float(row.get("Threshold", 0))
                     if pd.notna(thr) and (pd.isna(ber) or ber > 0):
                         styles[col_map["Instant BER After FEC"]] = "background-color:#ff4d4d; color:white"
-                except:
+                except (ValueError, TypeError):
                     # ถ้าแปลงเป็น float ไม่ได้ (None, NaN) ให้แสดงสีแดง
                     # แต่ต้องตรวจสอบ Threshold ด้วย
                     try:
                         thr = float(row.get("Threshold", 0))
                         if pd.notna(thr):
                             styles[col_map["Instant BER After FEC"]] = "background-color:#ff4d4d; color:white"
-                    except:
+                    except (ValueError, TypeError):
                         pass
 
                 # ✅ Input check - ใช้คอลัมน์เดียวกับตารางหลัก
@@ -477,7 +478,7 @@ class Line_Analyzer:
                         hi = float(row[self.col_max_in])
                         if pd.notna(v) and pd.notna(lo) and pd.notna(hi) and (v < lo or v > hi):
                             styles[col_map[self.col_in]] = "background-color:#ff4d4d; color:white"
-                    except:
+                    except (ValueError, TypeError):
                         pass
 
                 # ✅ Output check - ใช้คอลัมน์เดียวกับตารางหลัก
@@ -488,7 +489,7 @@ class Line_Analyzer:
                         hi = float(row[self.col_max_out])
                         if pd.notna(v) and pd.notna(lo) and pd.notna(hi) and (v < lo or v > hi):
                             styles[col_map[self.col_out]] = "background-color:#ff4d4d; color:white"
-                    except:
+                    except (ValueError, TypeError):
                         pass
 
                 return styles
@@ -641,46 +642,90 @@ class Line_Analyzer:
         """Plot Line Chart สำหรับ Board LB2R และ L4S (ใช้แถวจริงจากตารางหลัก)"""
         st.markdown("### Line Board Performance (LB2R & L4S)")
         
-        # ---------- Problem Call IDs (BER above threshold) ----------
-        st.markdown("**Problem Call IDs (BER above threshold)**")
-        
-        # BER abnormal - ใช้เงื่อนไขเดียวกับตารางหลัก: v > 0 หรือ None
-        # แต่ต้องมี Threshold ด้วย
+        # แสดงข้อมูล abnormal ที่มีปัญหา (สีแดง) จากตารางหลัก
+        self._render_abnormal_line_data(df_view)
+
+    def _render_abnormal_line_data(self, df_view: pd.DataFrame) -> None:
+        """แสดงข้อมูล abnormal ที่มีปัญหา (สีแดง) สำหรับ Line Board Performance"""
+        # ใช้เงื่อนไขเดียวกับตารางหลัก: BER + Input + Output abnormal
         ber_val = pd.to_numeric(df_view.get("Instant BER After FEC", pd.Series()), errors="coerce")
         thr_val = pd.to_numeric(df_view.get("Threshold", pd.Series()), errors="coerce")
         mask_ber = ((ber_val > 0) | ber_val.isna()) & thr_val.notna()
         
+        # Input abnormal
+        vin = pd.to_numeric(df_view.get(self.col_in, pd.Series()), errors="coerce")
+        min_in = pd.to_numeric(df_view.get(self.col_min_in, pd.Series()), errors="coerce")
+        max_in = pd.to_numeric(df_view.get(self.col_max_in, pd.Series()), errors="coerce")
+        mask_input = (vin.notna() & min_in.notna() & max_in.notna() & ((vin < min_in) | (vin > max_in)))
+        
+        # Output abnormal
+        vout = pd.to_numeric(df_view.get(self.col_out, pd.Series()), errors="coerce")
+        min_out = pd.to_numeric(df_view.get(self.col_min_out, pd.Series()), errors="coerce")
+        max_out = pd.to_numeric(df_view.get(self.col_max_out, pd.Series()), errors="coerce")
+        mask_output = (vout.notna() & min_out.notna() & max_out.notna() & ((vout < min_out) | (vout > max_out)))
+        
+        # รวมทุกเงื่อนไข abnormal
+        mask_any_abnormal = mask_ber | mask_input | mask_output
+        
         # เลือกคอลัมน์ที่จำเป็น
         columns_to_show = ["Site Name", "ME", "Call ID", "Measure Object", "Threshold", "Instant BER After FEC"]
         
-        fail_rows = df_view[mask_ber][columns_to_show].copy()
+        # เพิ่มคอลัมน์ Input/Output ถ้ามี
+        if self.col_in in df_view.columns:
+            columns_to_show.extend([self.col_in, self.col_min_in, self.col_max_in])
+        if self.col_out in df_view.columns:
+            columns_to_show.extend([self.col_out, self.col_min_out, self.col_max_out])
+        
+        fail_rows = df_view[mask_any_abnormal][columns_to_show].copy()
         
         # แปลงค่าเป็น numeric ก่อน format
-        if "Instant BER After FEC" in fail_rows.columns:
-            fail_rows["Instant BER After FEC"] = pd.to_numeric(fail_rows["Instant BER After FEC"], errors="coerce")
-        if "Threshold" in fail_rows.columns:
-            fail_rows["Threshold"] = pd.to_numeric(fail_rows["Threshold"], errors="coerce")
+        numeric_cols = ["Instant BER After FEC", "Threshold", self.col_in, self.col_out, 
+                       self.col_min_in, self.col_max_in, self.col_min_out, self.col_max_out]
+        for col in numeric_cols:
+            if col in fail_rows.columns:
+                fail_rows[col] = pd.to_numeric(fail_rows[col], errors="coerce")
+        
+        st.markdown(f"**⚠️ Abnormal Line Board Data** - Found {len(fail_rows)} rows with issues")
         
         if not fail_rows.empty:
-            def highlight_ber_row(row):
+            def highlight_abnormal_row(row):
                 styles = [""] * len(row)
                 col_map = {c: i for i, c in enumerate(fail_rows.columns)}
                 
-                # ✅ BER check - ใช้เงื่อนไขเดียวกับตารางหลัก: v > 0 หรือ None
-                # แต่ต้องมี Threshold ด้วย
+                # BER check
                 try:
-                    ber = float(row["Instant BER After FEC"])
+                    ber = float(row.get("Instant BER After FEC", 0))
                     thr = float(row.get("Threshold", 0))
                     if pd.notna(thr) and (pd.isna(ber) or ber > 0):
                         styles[col_map["Instant BER After FEC"]] = "background-color:#ff4d4d; color:white"
-                except:
-                    # ถ้าแปลงเป็น float ไม่ได้ (None, NaN) ให้แสดงสีแดง
-                    # แต่ต้องตรวจสอบ Threshold ด้วย
+                except (ValueError, TypeError):
                     try:
                         thr = float(row.get("Threshold", 0))
                         if pd.notna(thr):
                             styles[col_map["Instant BER After FEC"]] = "background-color:#ff4d4d; color:white"
-                    except:
+                    except (ValueError, TypeError):
+                        pass
+                
+                # Input check
+                if self.col_in in row:
+                    try:
+                        v = float(row[self.col_in])
+                        lo = float(row[self.col_min_in])
+                        hi = float(row[self.col_max_in])
+                        if pd.notna(v) and pd.notna(lo) and pd.notna(hi) and (v < lo or v > hi):
+                            styles[col_map[self.col_in]] = "background-color:#ff4d4d; color:white"
+                    except (ValueError, TypeError):
+                        pass
+                
+                # Output check
+                if self.col_out in row:
+                    try:
+                        v = float(row[self.col_out])
+                        lo = float(row[self.col_min_out])
+                        hi = float(row[self.col_max_out])
+                        if pd.notna(v) and pd.notna(lo) and pd.notna(hi) and (v < lo or v > hi):
+                            styles[col_map[self.col_out]] = "background-color:#ff4d4d; color:white"
+                    except (ValueError, TypeError):
                         pass
                 
                 return styles
@@ -689,15 +734,21 @@ class Line_Analyzer:
             
             styled = (
                 fail_rows.style
-                .apply(highlight_ber_row, axis=1)
+                .apply(highlight_abnormal_row, axis=1)
                 .format({
                     "Threshold": "{:.2E}",
-                    "Instant BER After FEC": "{:.2E}"
+                    "Instant BER After FEC": "{:.2E}",
+                    self.col_in: "{:.4f}",
+                    self.col_out: "{:.4f}",
+                    self.col_min_in: "{:.4f}",
+                    self.col_max_in: "{:.4f}",
+                    self.col_min_out: "{:.4f}",
+                    self.col_max_out: "{:.4f}"
                 }, na_rep="-")
             )
             st.dataframe(styled, use_container_width=True)
         else:
-            st.info("No BER abnormal records found.")
+            st.success("✅ All Line Board data is within normal parameters.")
 
         def _plot_board(df_board_raw: pd.DataFrame, board_name: str):
             if df_board_raw.empty:
@@ -955,65 +1006,52 @@ class Line_Analyzer:
         ]].reset_index(drop=True)
         df_result = self._apply_preset_route(df_result)
 
-        # 5) Detect abnormal groups
+        # 5) Detect abnormal groups - ใช้เงื่อนไขเดียวกับ _render_abnormal_line_data()
 
-        # 5.1 BER abnormal (Instant BER After FEC > Threshold)
+        # 5.1 BER abnormal - ใช้เงื่อนไขเดียวกับตารางหลัก: v > 0 หรือ None
+        # แต่ต้องมี Threshold ด้วย
         ber_val = pd.to_numeric(df_result["Instant BER After FEC"], errors="coerce")
         thr_val = pd.to_numeric(df_result["Threshold"], errors="coerce")
-        mask_ber = (pd.notna(ber_val) & pd.notna(thr_val) & (ber_val > thr_val))
+        mask_ber = ((ber_val > 0) | ber_val.isna()) & thr_val.notna()
         df_ber = df_result.loc[mask_ber, ["Site Name", "ME", "Call ID", "Measure Object", "Threshold", "Instant BER After FEC"]].copy()
 
-        # 5.2 LB2R abnormal (power out of range)
-        df_lb2r = df_result[df_result["Measure Object"].astype(str).str.contains("LB2R", na=False)].copy()
-        vin = pd.to_numeric(df_lb2r[self.col_in], errors="coerce")
-        vout = pd.to_numeric(df_lb2r[self.col_out], errors="coerce")
-        min_in = pd.to_numeric(df_lb2r[self.col_min_in], errors="coerce")
-        max_in = pd.to_numeric(df_lb2r[self.col_max_in], errors="coerce")
-        min_out = pd.to_numeric(df_lb2r[self.col_min_out], errors="coerce")
-        max_out = pd.to_numeric(df_lb2r[self.col_max_out], errors="coerce")
-        mask_lb2r = (
-            (vin.notna() & min_in.notna() & max_in.notna() & ((vin < min_in) | (vin > max_in))) |
-            (vout.notna() & min_out.notna() & max_out.notna() & ((vout < min_out) | (vout > max_out)))
-        )
-        df_lb2r = df_lb2r.loc[mask_lb2r, [
-            "Site Name", "ME", "Call ID", "Measure Object", "Threshold", "Instant BER After FEC",
-            self.col_max_out, self.col_min_out, self.col_out,
-            self.col_max_in, self.col_min_in, self.col_in, "Route"
-        ]].copy()
-
-        # 5.3 L4S abnormal (power out of range)
-        df_l4s = df_result[df_result["Measure Object"].astype(str).str.contains("L4S", na=False)].copy()
-        vin = pd.to_numeric(df_l4s[self.col_in], errors="coerce")
-        vout = pd.to_numeric(df_l4s[self.col_out], errors="coerce")
-        min_in = pd.to_numeric(df_l4s[self.col_min_in], errors="coerce")
-        max_in = pd.to_numeric(df_l4s[self.col_max_in], errors="coerce")
-        min_out = pd.to_numeric(df_l4s[self.col_min_out], errors="coerce")
-        max_out = pd.to_numeric(df_l4s[self.col_max_out], errors="coerce")
-        mask_l4s = (
-            (vin.notna() & min_in.notna() & max_in.notna() & ((vin < min_in) | (vin > max_in))) |
-            (vout.notna() & min_out.notna() & max_out.notna() & ((vout < min_out) | (vout > max_out)))
-        )
-        df_l4s = df_l4s.loc[mask_l4s, [
-            "Site Name", "ME", "Call ID", "Measure Object", "Threshold", "Instant BER After FEC",
-            self.col_max_out, self.col_min_out, self.col_out,
-            self.col_max_in, self.col_min_in, self.col_in, "Route"
-        ]].copy()
-
-        # 5.4 Preset abnormal (Route startswith 'Preset')
+        # 5.2 Input abnormal - ใช้เงื่อนไขเดียวกับตารางหลัก
+        vin = pd.to_numeric(df_result.get(self.col_in, pd.Series()), errors="coerce")
+        min_in = pd.to_numeric(df_result.get(self.col_min_in, pd.Series()), errors="coerce")
+        max_in = pd.to_numeric(df_result.get(self.col_max_in, pd.Series()), errors="coerce")
+        mask_input = (vin.notna() & min_in.notna() & max_in.notna() & ((vin < min_in) | (vin > max_in)))
+        
+        # 5.3 Output abnormal - ใช้เงื่อนไขเดียวกับตารางหลัก
+        vout = pd.to_numeric(df_result.get(self.col_out, pd.Series()), errors="coerce")
+        min_out = pd.to_numeric(df_result.get(self.col_min_out, pd.Series()), errors="coerce")
+        max_out = pd.to_numeric(df_result.get(self.col_max_out, pd.Series()), errors="coerce")
+        mask_output = (vout.notna() & min_out.notna() & max_out.notna() & ((vout < min_out) | (vout > max_out)))
+        
+        # 5.4 รวมทุกเงื่อนไข abnormal (BER + Input + Output) - เหมือนกับ _render_abnormal_line_data()
+        mask_any_abnormal = mask_ber | mask_input | mask_output
+        
+        # 5.5 แยกตาม Board Type
+        df_lb2r = df_result[df_result["Measure Object"].astype(str).str.contains("LB2R", na=False) & mask_any_abnormal].copy()
+        df_l4s = df_result[df_result["Measure Object"].astype(str).str.contains("L4S", na=False) & mask_any_abnormal].copy()
+        
+        # 5.6 Preset abnormal (Route startswith 'Preset')
         df_preset = df_result[df_result["Route"].astype(str).str.startswith("Preset")].copy()
         df_preset = df_preset[["Site Name", "ME", "Call ID", "Measure Object", "Route"]].copy()
 
-        # 6) Save results to properties 
+        # 6) Save results to properties - ใช้ข้อมูลจาก mask_any_abnormal เหมือนกับ _render_abnormal_line_data()
+        df_abnormal_all = df_result.loc[mask_any_abnormal, [
+            "Site Name", "ME", "Call ID", "Measure Object", "Threshold", "Instant BER After FEC",
+            self.col_max_out, self.col_min_out, self.col_out,
+            self.col_max_in, self.col_min_in, self.col_in, "Route"
+        ]].copy()
+        
         self.df_abnormal_by_type = {
             "BER": df_ber,
             "LB2R": df_lb2r,
             "L4S": df_l4s,
             "Preset": df_preset
-        } #2
-        self.df_abnormal = pd.concat(
-            [df for df in self.df_abnormal_by_type.values() if not df.empty],
-            ignore_index=True
-        ) if any(not df.empty for df in self.df_abnormal_by_type.values()) else pd.DataFrame()
+        }
+        self.df_abnormal = df_abnormal_all
 
         # 7) Save to session_state 
         st.session_state["line_analyzer"] = self

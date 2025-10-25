@@ -654,55 +654,83 @@ class SummaryTableReport:
 
                 # ===================== LINE =====================
                 elif task_name == "Line board":
-                    cols_to_show = [
-                        "Site Name", "ME", "Call ID", "Measure Object",
-                        "Threshold", "Instant BER After FEC",
-                        "Maximum threshold(out)", "Minimum threshold(out)", "Output Optical Power (dBm)",
-                        "Maximum threshold(in)", "Minimum threshold(in)", "Input Optical Power(dBm)",
-                        "Route"
-                    ]
-                    df_abn = df_abn[[c for c in cols_to_show if c in df_abn.columns]].copy()
+                    # ใช้ข้อมูลจาก Line_Analyzer ที่เตรียมไว้แล้ว
+                    line_analyzer = st.session_state.get("line_analyzer")
+                    if line_analyzer and hasattr(line_analyzer, 'df_abnormal') and not line_analyzer.df_abnormal.empty:
+                        df_abn = line_analyzer.df_abnormal.copy()
+                        
+                        # เลือกคอลัมน์ที่จำเป็น
+                        cols_to_show = [
+                            "Site Name", "ME", "Call ID", "Measure Object",
+                            "Threshold", "Instant BER After FEC",
+                            "Maximum threshold(out)", "Minimum threshold(out)", "Output Optical Power (dBm)",
+                            "Maximum threshold(in)", "Minimum threshold(in)", "Input Optical Power(dBm)",
+                            "Route"
+                        ]
+                        df_abn = df_abn[[c for c in cols_to_show if c in df_abn.columns]].copy()
 
-                    numeric_cols = [c for c in df_abn.columns if c not in ["Site Name", "ME", "Measure Object", "Call ID", "Route"]]
-                    for c in numeric_cols:
-                        df_abn[c] = pd.to_numeric(df_abn[c], errors="coerce")
+                        # แปลงค่าเป็น numeric
+                        numeric_cols = [c for c in df_abn.columns if c not in ["Site Name", "ME", "Measure Object", "Call ID", "Route"]]
+                        for c in numeric_cols:
+                            df_abn[c] = pd.to_numeric(df_abn[c], errors="coerce")
 
-                    def highlight_line_row(row):
-                        styles = [""] * len(row)
-                        col_map = {c: i for i, c in enumerate(df_abn.columns)}
+                        def highlight_line_row(row):
+                            styles = [""] * len(row)
+                            col_map = {c: i for i, c in enumerate(df_abn.columns)}
 
-                        try:
-                            ber, thr = row["Instant BER After FEC"], row["Threshold"]
-                            if pd.notna(ber) and pd.notna(thr) and ber > thr:
-                                styles[col_map["Instant BER After FEC"]] = "background-color:#ff9999; color:black"
-                        except:
-                            pass
+                            # BER check - ใช้เงื่อนไขเดียวกับ _render_abnormal_line_data()
+                            try:
+                                ber = float(row.get("Instant BER After FEC", 0))
+                                thr = float(row.get("Threshold", 0))
+                                if pd.notna(thr) and (pd.isna(ber) or ber > 0):
+                                    styles[col_map["Instant BER After FEC"]] = "background-color:#ff4d4d; color:white"
+                            except (ValueError, TypeError):
+                                try:
+                                    thr = float(row.get("Threshold", 0))
+                                    if pd.notna(thr):
+                                        styles[col_map["Instant BER After FEC"]] = "background-color:#ff4d4d; color:white"
+                                except (ValueError, TypeError):
+                                    pass
 
-                        try:
-                            v, lo, hi = row["Input Optical Power(dBm)"], row["Minimum threshold(in)"], row["Maximum threshold(in)"]
-                            if pd.notna(v) and pd.notna(lo) and pd.notna(hi) and (v < lo or v > hi):
-                                styles[col_map["Input Optical Power(dBm)"]] = "background-color:#ff9999; color:black"
-                        except:
-                            pass
+                            # Input check
+                            try:
+                                v = float(row.get("Input Optical Power(dBm)", 0))
+                                lo = float(row.get("Minimum threshold(in)", 0))
+                                hi = float(row.get("Maximum threshold(in)", 0))
+                                if pd.notna(v) and pd.notna(lo) and pd.notna(hi) and (v < lo or v > hi):
+                                    styles[col_map["Input Optical Power(dBm)"]] = "background-color:#ff4d4d; color:white"
+                            except (ValueError, TypeError):
+                                pass
 
-                        try:
-                            v, lo, hi = row["Output Optical Power (dBm)"], row["Minimum threshold(out)"], row["Maximum threshold(out)"]
-                            if pd.notna(v) and pd.notna(lo) and pd.notna(hi) and (v < lo or v > hi):
-                                styles[col_map["Output Optical Power (dBm)"]] = "background-color:#ff9999; color:black"
-                        except:
-                            pass
+                            # Output check
+                            try:
+                                v = float(row.get("Output Optical Power (dBm)", 0))
+                                lo = float(row.get("Minimum threshold(out)", 0))
+                                hi = float(row.get("Maximum threshold(out)", 0))
+                                if pd.notna(v) and pd.notna(lo) and pd.notna(hi) and (v < lo or v > hi):
+                                    styles[col_map["Output Optical Power (dBm)"]] = "background-color:#ff4d4d; color:white"
+                            except (ValueError, TypeError):
+                                pass
 
-                        return styles
+                            return styles
 
-                    styled = (
-                        df_abn.style
-                        .apply(highlight_line_row, axis=1)
-                        .format({
-                            "Threshold": "{:.2E}",
-                            "Instant BER After FEC": "{:.2E}",
-                        }, na_rep="-")
-                    )
-                    st.dataframe(styled, use_container_width=True)
+                        styled = (
+                            df_abn.style
+                            .apply(highlight_line_row, axis=1)
+                            .format({
+                                "Threshold": "{:.2E}",
+                                "Instant BER After FEC": "{:.2E}",
+                                "Input Optical Power(dBm)": "{:.4f}",
+                                "Output Optical Power (dBm)": "{:.4f}",
+                                "Minimum threshold(in)": "{:.4f}",
+                                "Maximum threshold(in)": "{:.4f}",
+                                "Minimum threshold(out)": "{:.4f}",
+                                "Maximum threshold(out)": "{:.4f}"
+                            }, na_rep="-")
+                        )
+                        st.dataframe(styled, use_container_width=True)
+                    else:
+                        st.info("No abnormal Line board data found.")
 
                 # ===================== CLIENT =====================
                 elif task_name == "Client board":
