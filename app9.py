@@ -587,8 +587,7 @@ if original_menu == "Home":
                             df_optical=st.session_state["osc_data"].copy(),
                             df_fm=st.session_state["fm_data"].copy(),
                             threshold=2.0,
-                            ref_path="data/Flapping.xlsx",
-                            debug=False  # ปิด debug mode (เปลี่ยนเป็น True เพื่อดู debug info)
+                            ref_path="data/Flapping.xlsx"
                         )
                         analyzer.prepare()
                         st.session_state["fiberflapping_analyzer"] = analyzer
@@ -845,8 +844,7 @@ elif original_menu == "Fiber Flapping":
                 df_optical=df_osc.copy(),
                 df_fm=df_fm.copy(),
                 threshold=2.0,   # คงเดิม
-                ref_path="data/Flapping.xlsx",  # ใช้ชื่อไฟล์ตัวใหญ่ และมี fallback ภายใน
-                debug=False  # ปิด debug mode (เปลี่ยนเป็น True เพื่อดู debug info)
+                ref_path="data/Flapping.xlsx"  # ใช้ชื่อไฟล์ตัวใหญ่ และมี fallback ภายใน
             )
             analyzer.process()
             st.caption(
@@ -1670,7 +1668,7 @@ elif original_menu == "APO Remnant":
             apo_status.text("✅ APO analysis completed!")
             
             # แสดงผล KPI และ UI
-            apo_kpi(analyzer.rendered)
+            apo_kpi(analyzer.rendered, analyzer.apo_links)
             analyzer.render_streamlit()
             
             # บันทึก analyzer ใน session state

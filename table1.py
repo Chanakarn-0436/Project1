@@ -212,49 +212,99 @@ class SummaryTableReport:
             return ("Error", "Preset usage analysis from WASON logs", None, {})
 
     def _get_apo_summary(self):
-        """ดึงข้อมูล APO summary"""
+        """ดึงข้อมูล APO summary พร้อมรายละเอียด links"""
         analyzer = st.session_state.get("apo_analyzer")
         if analyzer is None:
             return ("No data", "APO remnant analysis from WASON logs", None, {})
         
         try:
             rendered = getattr(analyzer, "rendered", [])
+            site_map = getattr(analyzer, "site_map", {})
             
             if rendered:
                 # ตรวจสอบว่ามี APO remnants หรือไม่
-                apo_count = 0
-                for x in rendered:
-                    if len(x) >= 3 and x[2]:  # x[2] = has_apo
-                        apo_count += 1
+                apo_count = sum(1 for x in rendered if len(x) >= 3 and x[2])
                 
                 if apo_count > 0:
-                    # สร้าง DataFrame จาก rendered data
-                    df_data = []
+                    # สร้าง detailed summary text
+                    apo_details = []
+                    
+                    # Group by site
                     for item in rendered:
                         if len(item) >= 4:
                             wip = item[0]
-                            dest_tuple = item[1]  # (site_name, wason_snippet, apop_snippet, set1, set2)
+                            dest_tuple = item[1]  # (site_name, wason_snippet, apop_snippet, to_red_wason, to_red_apop)
                             has_apo = item[2]
-                            sort_name = item[3]
                             
                             if has_apo:
-                                # Extract site name from tuple
-                                site_name = dest_tuple[0] if len(dest_tuple) > 0 else ""
+                                site_name = dest_tuple[0] if len(dest_tuple) > 0 else wip
                                 
-                                df_data.append({
-                                    "Site IP": wip,
-                                    "Site Name": site_name,
-                                    "APO Status": "Remnant Found"
-                                })
+                                # ดึง APOP lines ที่มี remnant (ตัวที่เป็นสีแดง)
+                                apop_snippet = dest_tuple[2] if len(dest_tuple) > 2 else ""
+                                to_red_apop = dest_tuple[4] if len(dest_tuple) > 4 else set()
+                                
+                                # เพิ่มหัวข้อ Site
+                                apo_details.append(f"\n**Site: {site_name} ({wip})**\n")
+                                
+                                # แสดง remnant lines
+                                if apop_snippet:
+                                    apop_lines = apop_snippet.split('\n')
+                                    
+                                    # หา header line
+                                    header_line = None
+                                    for line in apop_lines:
+                                        if '[APOPLUS]No' in line and 'SourceNodeID' in line:
+                                            header_line = line
+                                            break
+                                    
+                                    # Group remnants by source→destination
+                                    remnant_by_link = {}
+                                    for line in apop_lines:
+                                        if line in to_red_apop and '[APOPLUS]' in line:
+                                            # Parse line to get source and dest hex
+                                            parts = line.split()
+                                            if len(parts) >= 3:
+                                                try:
+                                                    src_hex = parts[1]
+                                                    dst_hex = parts[2]
+                                                    
+                                                    # Convert hex to IP
+                                                    src_ip = analyzer._hex_to_ip(src_hex)
+                                                    dst_ip = analyzer._hex_to_ip(dst_hex)
+                                                    src_name = site_map.get(src_ip, src_ip)
+                                                    dst_name = site_map.get(dst_ip, dst_ip)
+                                                    
+                                                    link_key = f"{src_name} ({src_ip}) → {dst_name} ({dst_ip})"
+                                                    
+                                                    if link_key not in remnant_by_link:
+                                                        remnant_by_link[link_key] = []
+                                                    remnant_by_link[link_key].append(line)
+                                                except:
+                                                    pass
+                                    
+                                    # แสดงแต่ละ link
+                                    for link_key, lines in sorted(remnant_by_link.items()):
+                                        apo_details.append(f"   **{link_key}**")
+                                        apo_details.append("```")
+                                        if header_line:
+                                            apo_details.append(header_line)
+                                        for line in lines:
+                                            apo_details.append(line)
+                                        apo_details.append("```")
+                                        apo_details.append("")  # blank line
                     
-                    df_apo = pd.DataFrame(df_data) if df_data else None
-                    return ("Abnormal", "APO remnant analysis from WASON logs", df_apo, {"APO": df_apo})
+                    # Join all details
+                    apo_summary_text = "\n".join(apo_details)
+                    
+                    return ("Abnormal", "APO remnant analysis from WASON logs", apo_summary_text, {"APO": apo_summary_text})
                 else:
                     return ("Normal", "APO remnant analysis from WASON logs", None, {})
             else:
                 return ("No data", "APO remnant analysis from WASON logs", None, {})
         except Exception as e:
             st.warning(f"APO summary error: {e}")
+            import traceback
+            st.code(traceback.format_exc())
             return ("Error", "APO remnant analysis from WASON logs", None, {})
 
     def render(self) -> None:
@@ -839,7 +889,10 @@ class SummaryTableReport:
 
                 # ===================== APO =====================
                 elif task_name == "APO remnant":
-                    if df_abn is not None and not df_abn.empty:
+                    if df_abn is not None and isinstance(df_abn, str):
+                        # df_abn เป็น text summary ของ APO remnants
+                        st.markdown(df_abn)
+                    elif df_abn is not None:
                         st.dataframe(df_abn, use_container_width=True)
                     else:
                         st.info("No APO remnant data to display")

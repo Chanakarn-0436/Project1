@@ -5,8 +5,6 @@ import streamlit as st
 import plotly.express as px
 from utils.filters import cascading_filter
 
-# หมายเหตุ: ต้องมีฟังก์ชัน cascading_filter(df, cols, ns, labels=None, clear_text="...") อยู่ภายนอกให้เรียกใช้งานได้
-
 
 class FiberflappingAnalyzer:
     """
@@ -20,20 +18,19 @@ class FiberflappingAnalyzer:
     การใช้งาน:
         analyzer = FiberflappingAnalyzer(df_optical, df_fm, threshold=2.0)
         analyzer.process()
-        
-    Debug mode:
-        analyzer = FiberflappingAnalyzer(df_optical, df_fm, threshold=2.0, debug=True)
-        analyzer.process()  # จะแสดงข้อมูล debug ว่ากรอง fiber cut อะไรออกบ้าง
     """
 
-    def __init__(self, df_optical: pd.DataFrame, df_fm: pd.DataFrame, threshold: float = 2.0, ref_path: str = "data/Flapping.xlsx", debug: bool = False):
+    # -------------------- Regex --------------------
+    # ดึงชื่อโหนดที่ลงท้ายด้วย _A หรือ _R เช่น CR_WCO_7807_031_1Z_A / SR_WCO_9006_043_1Z_A
+    _NODE_PATTERN = re.compile(r'[A-Z]{2}_[A-Z0-9]+_\d{3,4}_[0-9]{3}_[0-9A-Z]+_[AR]')
+
+    def __init__(self, df_optical: pd.DataFrame, df_fm: pd.DataFrame, threshold: float = 2.0, ref_path: str = "data/Flapping.xlsx"):
         self.df_optical_raw = df_optical
         self.df_fm_raw = df_fm
         self.threshold = threshold
         self.ref_path = ref_path
         self.df_ref = None  # Reference data for site names
         self.daily_tables = None  # NEW: เก็บผลตารางรายวันสำหรับ export/report
-        self.debug = debug  # Debug mode
 
      
 
@@ -67,6 +64,28 @@ class FiberflappingAnalyzer:
                 st.warning(f"Could not load reference file {primary_path}: {e_primary}")
                 return pd.DataFrame()
 
+    # -------------------- Helpers --------------------
+    @staticmethod
+    def _extract_target_from_measure_object(measure_obj: str) -> str | None:
+        """ดึง Target ME จากข้อความในวงเล็บของ Measure Object"""
+        m = re.search(r"\(([^)]+)\)", str(measure_obj))
+        return m.group(1) if m else None
+
+    def _extract_nodes_from_link(self, link_val: str) -> tuple[str | None, str | None]:
+        """
+        ดึงชื่อโหนด 2 ตัวจากคอลัมน์ Link ของ FM
+        คืนค่า (fm_node1, fm_node2) หรือ (None, None) ถ้าดึงไม่ได้
+        - ใช้ regex หา token ที่หน้าตาเหมือน ME/Target (ลงท้าย _A/_R)
+        - เลือก 2 ตัวแรกตามลำดับที่ปรากฏ
+        """
+        if pd.isna(link_val):
+            return (None, None)
+        s = str(link_val)
+        nodes = self._NODE_PATTERN.findall(s)
+        if len(nodes) >= 2:
+            return (nodes[0], nodes[1])
+        return (None, None)
+
     # -------------------- Normalize / Prepare --------------------
     def normalize_optical(self) -> pd.DataFrame:
         df = self.df_optical_raw.copy()
@@ -79,20 +98,16 @@ class FiberflappingAnalyzer:
         )
 
         # Extract Target ME จาก Measure Object: ค่าในวงเล็บ
-        def extract_target(measure_obj):
-            match = re.search(r"\(([^)]+)\)", str(measure_obj))
-            return match.group(1) if match else None
-
-        df["Target ME"] = df["Measure Object"].apply(extract_target)
+        df["Target ME"] = df["Measure Object"].apply(self._extract_target_from_measure_object)
 
         # เพิ่ม Site Name จาก reference
         self.df_ref = self._load_reference()
         if not self.df_ref.empty and "ME" in self.df_ref.columns and "Site Name" in self.df_ref.columns:
             # Merge กับ reference เพื่อเพิ่ม Site Name
             df = df.merge(
-                self.df_ref[["ME", "Site Name"]], 
-                left_on="ME", 
-                right_on="ME", 
+                self.df_ref[["ME", "Site Name"]],
+                left_on="ME",
+                right_on="ME",
                 how="left"
             )
         else:
@@ -112,157 +127,130 @@ class FiberflappingAnalyzer:
         df["Clear Time"] = pd.to_datetime(df["Clear Time"], errors="coerce")
 
         # หา column แรกที่ขึ้นต้นด้วย "Link"
-        link_cols = [c for c in df.columns if c.startswith("Link")]
+        link_cols = [c for c in df.columns if str(c).startswith("Link")]
         if not link_cols:
             raise ValueError("No 'Link*' column found in FM Alarm file.")
         link_col = link_cols[0]
+
+        # ✅ เตรียม fm_node1, fm_node2 เพื่อเร่งความเร็วขณะเทียบ
+        fm_nodes = df[link_col].apply(self._extract_nodes_from_link)
+        df["fm_node1"] = fm_nodes.apply(lambda x: x[0])
+        df["fm_node2"] = fm_nodes.apply(lambda x: x[1])
+
         return df, link_col
 
     # -------------------- Core Filtering --------------------
     def filter_optical_by_threshold(self, df_optical_norm: pd.DataFrame) -> pd.DataFrame:
-        return df_optical_norm[df_optical_norm["Max - Min (dB)"] > self.threshold].copy()
+        """
+        กรองข้อมูล Optical:
+          1. ตัดแถวที่ Min Value = -60 (ถือว่าไม่มีสัญญาณ)
+          2. เก็บเฉพาะแถวที่ Max - Min (dB) > threshold
+        """
+        df = df_optical_norm.copy()
 
-    def _get_me_variations(self, me_name: str) -> list:
-        """
-        สร้าง variations ของ ME name เพื่อใช้ในการ match
-        
-        Returns:
-            list of possible ME variations
-            
-        Example:
-            BK_WCO_0143_210_1Z → [
-                'BK_WCO_0143_210_1Z',
-                'BK_WCO_0143_210_1Z_A',
-                'BK_WCO_0143_210_1Z_R'
-            ]
-        """
-        me_name = str(me_name).strip()
-        variations = [me_name]
-        
-        # ถ้าลงท้ายด้วย _A หรือ _R ให้เพิ่ม base version
-        if me_name.endswith('_R') or me_name.endswith('_A'):
-            base = me_name[:-2]
-            variations.append(base)
-            # เพิ่มอีก variant ที่เป็นไปได้
-            other_suffix = '_A' if me_name.endswith('_R') else '_R'
-            variations.append(base + other_suffix)
-        else:
-            # ถ้าไม่มี suffix ให้เพิ่มทั้ง _A และ _R
-            variations.append(me_name + '_A')
-            variations.append(me_name + '_R')
-        
-        return variations
-    
-    def _is_me_in_link(self, me_variations: list, link: str) -> bool:
-        """
-        ตรวจสอบว่า ME อยู่ใน Link หรือไม่ (ใช้ word boundary)
-        
-        Args:
-            me_variations: list of ME variations
-            link: Link string
-            
-        Returns:
-            True ถ้า ME อยู่ใน Link
-        """
-        link_upper = link.upper()
-        for me_var in me_variations:
-            me_upper = me_var.upper()
-            if me_upper in link_upper:
-                # ตรวจสอบว่าเป็น word boundary (ไม่ใช่ substring ของคำอื่น)
-                idx = link_upper.find(me_upper)
-                # ตรวจสอบตัวอักษรก่อนหน้า (ถ้ามี)
-                if idx > 0:
-                    prev_char = link_upper[idx - 1]
-                    if prev_char.isalnum() or prev_char == '_':
-                        # ถ้าตัวก่อนหน้าเป็นตัวอักษร/ตัวเลข/_ แสดงว่าเป็น substring
-                        continue
-                # ตรวจสอบตัวอักษรถัดไป (ถ้ามี)
-                end_idx = idx + len(me_upper)
-                if end_idx < len(link_upper):
-                    next_char = link_upper[end_idx]
-                    if next_char.isalnum():
-                        # ถ้าตัวถัดไปเป็นตัวอักษร/ตัวเลข แสดงว่าเป็น substring
-                        continue
-                return True
-        return False
+        # 1️⃣ ตัดแถวที่ Min Value = -60
+        if "Min Value of Input Optical Power(dBm)" in df.columns:
+            before = len(df)
+            df = df[df["Min Value of Input Optical Power(dBm)"] != -60]
+            after = len(df)
+            print(f"🔹 Filtered out {before - after} rows where Min Value = -60 dBm")
+
+        # 2️⃣ กรองตาม threshold
+        df_filtered = df[df["Max - Min (dB)"] > self.threshold].copy()
+
+        print(f"✅ Remaining rows after threshold filter: {len(df_filtered)}")
+        return df_filtered
+
 
     def find_nomatch(self, df_filtered: pd.DataFrame, df_fm_norm: pd.DataFrame, link_col: str) -> pd.DataFrame:
         """
-        หาแถวใน df_filtered ที่เป็น Fiber Flapping (ไม่ใช่ Fiber Cut):
-        
-        Logic:
-          1. ดึง ME และ Target ME จาก OSC Optical
-          2. สร้าง variations ของ ME names (รองรับ suffix _A, _R)
-          3. ตรวจสอบว่า Link ใน FM Alarm มี ME และ Target ME ทุก variation
-          4. เช็คเวลา overlap: Occurrence <= End และ Clear >= Begin
-          5. ถ้า match → Fiber Cut (กรอง), ไม่ match → Fiber Flapping (แสดง)
+        Logic ใหม่: ตรวจทีละแถว โดยเทียบ 'คู่โหนด' กับคอลัมน์ Link ของ FM (สลับได้)
+        ถ้าไม่พบคู่โหนดใน FM → FLAPPING
+        ถ้าพบคู่โหนด → ตรวจเวลา overlap:
+            Occurrence Time <= End Time และ Clear Time >= Begin Time
+            - ถ้ามีอย่างน้อย 1 แถว overlap → MATCHED (not flapping)
+            - ถ้าไม่มี overlap เลย → FLAPPING
+        พิมพ์ log ลง terminal ทุกกรณี
         """
         result_rows = []
-        filtered_count = 0  # นับจำนวนที่ถูกกรองออก
-        kept_count = 0  # นับจำนวนที่เก็บไว้
-        
-        for idx, row in df_filtered.iterrows():
-            me_raw = str(row.get("ME", "")).strip()
-            target_me_raw = str(row.get("Target ME", "")).strip()
+
+        # เตรียมเฉพาะ FM rows ที่มีโหนดครบทั้ง 2 ข้าง
+        fm_valid = df_fm_norm.dropna(subset=["fm_node1", "fm_node2"]).copy()
+
+        for idx, row in df_filtered.reset_index(drop=True).iterrows():
+            node_a = str(row.get("ME", "")).strip()
+            node_b = str(row.get("Target ME", "")).strip()
             begin_t = row.get("Begin Time", pd.NaT)
             end_t = row.get("End Time", pd.NaT)
-            
-            # ต้องมีข้อมูลครบ
-            if not me_raw or not target_me_raw or pd.isna(begin_t) or pd.isna(end_t):
-                continue
-            
-            # สร้าง variations สำหรับ matching
-            me_variations = self._get_me_variations(me_raw)
-            target_variations = self._get_me_variations(target_me_raw)
-            
-            # ค้นหา Fiber Cut ใน FM Alarm
-            is_fiber_cut = False
-            matched_link = None  # สำหรับ debug
-            
-            for _, fm_row in df_fm_norm.iterrows():
-                link_val = str(fm_row.get(link_col, ""))
-                occur_time = fm_row.get("Occurrence Time", pd.NaT)
-                clear_time = fm_row.get("Clear Time", pd.NaT)
-                
-                # ต้องมี Occurrence Time
-                if pd.isna(occur_time):
-                    continue
-                
-                # ✅ ตรวจสอบว่า Link มี ME และ Target ME (ใช้ word boundary)
-                has_me = self._is_me_in_link(me_variations, link_val)
-                has_target = self._is_me_in_link(target_variations, link_val)
-                
-                if has_me and has_target:
-                    # ✅ ตรวจสอบช่วงเวลา overlap
-                    if pd.isna(clear_time):
-                        # ยังไม่ Clear: Occurrence <= End → overlap
-                        if occur_time <= end_t:
-                            is_fiber_cut = True
-                            matched_link = link_val
-                            break
-                    else:
-                        # มี Clear Time: Occurrence <= End และ Clear >= Begin
-                        if occur_time <= end_t and clear_time >= begin_t:
-                            is_fiber_cut = True
-                            matched_link = link_val
-                            break
-            
-            # ✅ ถ้าไม่ใช่ Fiber Cut → เก็บเป็น Fiber Flapping
-            if not is_fiber_cut:
+
+            # ข้ามแถวที่ไม่มี node ใด node หนึ่ง
+            if not node_a or not node_b or pd.isna(begin_t) or pd.isna(end_t):
+                print(f"Row {idx}: ⚠️ Missing fields → ME='{node_a}', Target='{node_b}', Begin='{begin_t}', End='{end_t}' → Treat as FLAPPING")
                 result_rows.append(row)
-                kept_count += 1
-                if self.debug and kept_count <= 3:  # แสดงแค่ 3 ตัวอย่างแรก
-                    st.write(f"✅ Kept as Fiber Flapping #{kept_count}: ME={me_raw}, Target={target_me_raw}")
-            else:
-                filtered_count += 1
-                if self.debug and filtered_count <= 3:  # แสดงแค่ 3 ตัวอย่างแรก
-                    st.write(f"🔴 Filtered as Fiber Cut #{filtered_count}: ME={me_raw}, Target={target_me_raw}")
-                    if matched_link:
-                        st.caption(f"   Link: {matched_link[:100]}...")
-        
-        if self.debug:
-            st.info(f"📊 Fiber Cut Filtering: {filtered_count} records filtered out, {len(result_rows)} Fiber Flapping kept")
-        
+                continue
+
+            # หา FM ที่คู่โหนดตรง (สลับได้)
+            fm_pair_mask = (
+                ((fm_valid["fm_node1"] == node_a) & (fm_valid["fm_node2"] == node_b)) |
+                ((fm_valid["fm_node1"] == node_b) & (fm_valid["fm_node2"] == node_a))
+            )
+            fm_candidates = fm_valid[fm_pair_mask]
+
+           
+            # ไม่เจอคู่โหนดเลย → FLAPPING
+            if fm_candidates.empty:
+                print(
+                    f"Row {idx}: ME={node_a}, Target={node_b}\n"
+                    f"       No match in FM for link pair ({node_a} ↔ {node_b})\n"
+                    f"       Optical Time: {begin_t} → {end_t}\n"
+                    f"       → FLAPPING ✅ (no FM link found)"
+                )
+                result_rows.append(row)
+                continue
+
+            # มีคู่โหนดใน FM → ตรวจเวลา overlap (มีสักอัน overlap = MATCHED)
+            any_overlap = False
+            multi_logs = []
+            for j, fm_r in fm_candidates.iterrows():
+                fm_a, fm_b = fm_r["fm_node1"], fm_r["fm_node2"]
+                occ_t = fm_r.get("Occurrence Time", pd.NaT)
+                clr_t = fm_r.get("Clear Time", pd.NaT)
+
+                overlap = (
+                    pd.notna(occ_t)
+                    and pd.notna(clr_t)
+                    and (occ_t <= end_t)
+                    and (clr_t >= begin_t)
+                )
+                any_overlap = any_overlap or overlap
+
+                # เก็บ log ต่อรายการ
+                multi_logs.append(
+                    f"           FM Link: {fm_a}-{fm_b}, FM Time: {occ_t} → {clr_t} "
+                    f"({'Overlap ✅' if overlap else 'No overlap'})"
+                )
+
+            # ✅ พิมพ์เฉพาะกรณี FLAPPING เท่านั้น
+            if not any_overlap:
+                if len(multi_logs) == 1:
+                    header = (
+                        f"Row {idx}: ME={node_a}, Target={node_b}\n"
+                        f"       Found match in FM → Link: {fm_candidates.iloc[0]['fm_node1']}-{fm_candidates.iloc[0]['fm_node2']}\n"
+                        f"       Optical Time: {begin_t} → {end_t}\n"
+                    )
+                    print(header + multi_logs[0] + f"\n       Time overlap: False  → FLAPPING ✅")
+                else:
+                    print(
+                        f"Row {idx}: ME={node_a}, Target={node_b}\n"
+                        f"       Found multiple FM matches:\n" +
+                        "\n".join(multi_logs) + "\n" +
+                        f"       Optical Time: {begin_t} → {end_t}\n"
+                        f"       Overall Result → FLAPPING ✅"
+                    )
+
+                # เก็บเข้า result ถ้า 'ไม่ overlap ทั้งหมด' = FLAPPING
+                result_rows.append(row)
+
         return pd.DataFrame(result_rows)
 
     # -------------------- View Preparation --------------------
@@ -271,8 +259,7 @@ class FiberflappingAnalyzer:
         # คอลัมน์ที่จะโชว์ - เพิ่ม Site Name ระหว่าง Granularity และ ME
         view_cols = [
             "Begin Time", "End Time", "Granularity", "Site Name", "ME", "ME IP", "Measure Object",
-            "Max Value of Input Optical Power(dBm)", "Min Value of Input Optical Power(dBm)",
-            "Input Optical Power(dBm)", "Max - Min (dB)"
+            "Max Value of Input Optical Power(dBm)", "Min Value of Input Optical Power(dBm)", "Max - Min (dB)"
         ]
         view_cols = [c for c in view_cols if c in df_nomatch.columns]
         df_view = df_nomatch[view_cols].copy()
@@ -281,7 +268,6 @@ class FiberflappingAnalyzer:
         num_cols = [
             "Max Value of Input Optical Power(dBm)",
             "Min Value of Input Optical Power(dBm)",
-            "Input Optical Power(dBm)",
             "Max - Min (dB)"
         ]
         num_cols = [c for c in num_cols if c in df_view.columns]
@@ -323,12 +309,10 @@ class FiberflappingAnalyzer:
                 .format({
                     "Max Value of Input Optical Power(dBm)": "{:.2f}",
                     "Min Value of Input Optical Power(dBm)": "{:.2f}",
-                    "Input Optical Power(dBm)": "{:.2f}",
                     "Max - Min (dB)": "{:.2f}",
                 })
             )
             st.write(styled_df)
-            
         else:
             st.dataframe(df_view, use_container_width=True)
         
@@ -375,30 +359,32 @@ class FiberflappingAnalyzer:
             sel_day = st.session_state["selected_day"]
             sel = df_nomatch[df_nomatch["Date"] == sel_day]
 
-            # สรุปจำนวน flapping ต่อ Site Name เรียงจากมากไปน้อย
-            if not sel.empty and "Site Name" in sel.columns:
-                counts = sel["Site Name"].value_counts().reset_index()
-                counts.columns = ["Site Name", "Count"]
-                num_sites = len(counts)
-                
-                # แสดงหัวข้อพร้อมจำนวนไซต์
-                st.markdown(f"#### {sel_day} {num_sites} sites")
-                
-                # สร้างข้อความรวมในบรรทัดเดียว เช่น Wiang Sra_Z (2 links)
-                counts_str = " ".join([
-                    f"{r['Site Name']} ({r['Count']} link{'s' if r['Count'] > 1 else ''})"
-                    for _, r in counts.iterrows()
-                ])
+           
+            st.markdown(f"#### Details for {sel_day}")
+
+            # 🔹 สรุปจำนวน flapping ต่อ Site Name (แบบใหม่)
+            if not sel.empty and "Site Name" in sel.columns and "ME" in sel.columns and "Measure Object" in sel.columns:
+                # ดึง Target ME จาก Measure Object (ใช้ regex ดึงในกรณีที่ยังไม่มี Target ME)
+                sel["Target ME"] = sel["Measure Object"].apply(
+                    lambda x: re.search(r"\(([^)]+)\)", str(x)).group(1) if pd.notna(x) and re.search(r"\(([^)]+)\)", str(x)) else None
+                )
+                summary_rows = []
+                for site, group in sel.groupby("Site Name"):
+                    # สร้างชุด link ไม่ซ้ำ (ME + Target ME)
+                    link_pairs = group[["ME", "Target ME"]].drop_duplicates()
+                    n_links = len(link_pairs)
+                    n_times = len(group)
+                    summary_rows.append(f"{site} ({n_links} link{'s' if n_links > 1 else ''} {n_times} time{'s' if n_times > 1 else ''})")
+
+                counts_str = " ".join(summary_rows)
                 st.markdown(counts_str)
-            else:
-                st.markdown(f"#### {sel_day} 0 sites")
                 
             if sel.empty:
                 st.info("No flapping records on this day")
             else:
                 # ✅ เลือกเฉพาะคอลัมน์ที่ต้องการ (ไม่มี Target ME, Date)
                 view_cols = [
-                    "Begin Time", "End Time","Site Name", "ME", "ME IP", "Measure Object",
+                    "Begin Time", "End Time", "Site Name", "ME", "ME IP", "Measure Object",
                     "Max Value of Input Optical Power(dBm)",
                     "Min Value of Input Optical Power(dBm)", "Max - Min (dB)"
                 ]
@@ -412,7 +398,7 @@ class FiberflappingAnalyzer:
                         .apply(
                             lambda _:
                                 ['background-color:#ff4d4d; color:white' if (v > self.threshold) else ''
-                                for v in sel["Max - Min (dB)"]],
+                                 for v in sel["Max - Min (dB)"]],
                             subset=["Max - Min (dB)"]
                         )
                         .format({
@@ -443,7 +429,7 @@ class FiberflappingAnalyzer:
             "Begin Time", "End Time", "Site Name", "ME", "Measure Object",
             "Max Value of Input Optical Power(dBm)",
             "Min Value of Input Optical Power(dBm)",
-            "Input Optical Power(dBm)", "Max - Min (dB)"
+            "Max - Min (dB)"
         ]
         have = [c for c in view_cols if c in df.columns]
         out = df[have].copy()
@@ -451,7 +437,7 @@ class FiberflappingAnalyzer:
         num_cols = [c for c in [
             "Max Value of Input Optical Power(dBm)",
             "Min Value of Input Optical Power(dBm)",
-            "Input Optical Power(dBm)", "Max - Min (dB)"
+            "Max - Min (dB)"
         ] if c in out.columns]
         if num_cols:
             out.loc[:, num_cols] = out[num_cols].apply(pd.to_numeric, errors="coerce").round(2)
@@ -484,7 +470,7 @@ class FiberflappingAnalyzer:
         # 2) กรองตาม threshold
         df_filtered = self.filter_optical_by_threshold(df_optical_norm)
 
-        # 3) หา no-match
+        # 3) หา no-match (ด้วย logic ใหม่)
         df_nomatch = self.find_nomatch(df_filtered, df_fm_norm, link_col)
 
         # 4) ตารางหลัก
@@ -504,7 +490,7 @@ class FiberflappingAnalyzer:
         # 2) กรองตาม threshold
         df_filtered = self.filter_optical_by_threshold(df_optical_norm)
 
-        # 3) หา no-match
+        # 3) หา no-match (ด้วย logic ใหม่)
         df_nomatch = self.find_nomatch(df_filtered, df_fm_norm, link_col)
 
         # 4) สร้าง abnormal tables
@@ -518,11 +504,7 @@ class FiberflappingAnalyzer:
             self.df_abnormal = pd.DataFrame()
             self.df_abnormal_by_type = {}
 
-        # 5) ตั้งค่า session_state สำหรับ sidebar indicator
-        st.session_state["fiberflapping_abn_count"] = len(self.df_abnormal)
-        st.session_state["fiberflapping_status"] = "Abnormal" if not self.df_abnormal.empty else "Normal"
-
-        # 6) สร้าง daily tables สำหรับ export
+        # 5) สร้าง daily tables สำหรับ export
         self.build_daily_tables(df_nomatch)
 
     @property

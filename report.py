@@ -31,8 +31,11 @@ def _colored(text: str, color: str, base_style: ParagraphStyle) -> Paragraph:
 def _has_abnormal(abn_dict: dict) -> bool:
     if not abn_dict:
         return False
-    for _sub, df in abn_dict.items():
-        if isinstance(df, pd.DataFrame) and not df.empty:
+    for _sub, data in abn_dict.items():
+        # รองรับทั้ง DataFrame และ String (สำหรับ APO)
+        if isinstance(data, pd.DataFrame) and not data.empty:
+            return True
+        elif isinstance(data, str) and data.strip():
             return True
     return False
 
@@ -173,7 +176,7 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
     elements.append(PageBreak())
 
     # ===== Sections (CPU มาก่อน FAN) =====
-    section_order = ["CPU", "FAN", "MSU", "Line", "Client", "Fiber", "EOL", "Core"]
+    section_order = ["CPU", "FAN", "MSU", "Line", "Client", "Fiber", "EOL", "Core", "Preset", "APO"]
     light_red = HexColor("#FF9999")
     light_yellow = HexColor("#FFF3CD")
     text_black = colors.black
@@ -187,8 +190,12 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
             
         # ตรวจสอบว่ามี abnormal data จริงหรือไม่
         has_abnormal_data = False
-        for subtype, df in abn_dict.items():
-            if isinstance(df, pd.DataFrame) and not df.empty:
+        for subtype, data in abn_dict.items():
+            # รองรับทั้ง DataFrame และ String (สำหรับ APO)
+            if isinstance(data, pd.DataFrame) and not data.empty:
+                has_abnormal_data = True
+                break
+            elif isinstance(data, str) and data.strip():
                 has_abnormal_data = True
                 break
                 
@@ -196,7 +203,12 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
         if not has_abnormal_data:
             continue
 
-        elements.append(Paragraph(f"{section_name} Performance", section_title_left))
+        # Title แยกตาม type
+        if section_name in ["Preset", "APO"]:
+            title = f"{section_name} Analysis"
+        else:
+            title = f"{section_name} Performance"
+        elements.append(Paragraph(title, section_title_left))
 
         # ===== Special handling for Fiber Flapping (group by date) =====
         if section_name == "Fiber":
@@ -284,6 +296,51 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
                         elements.append(table)
                         elements.append(Spacer(1, 18))
             continue  # Skip normal processing for Fiber
+        
+        # ===== Special handling for APO Remnant (text summary) =====
+        if section_name == "APO":
+            for subtype, data in abn_dict.items():
+                if isinstance(data, str) and data.strip():
+                    # APO data เป็น text summary
+                    # แยกออกเป็นบรรทัด แล้วแปลงเป็น Paragraph
+                    lines = data.split('\n')
+                    
+                    for line in lines:
+                        line = line.strip()
+                        if not line:
+                            elements.append(Spacer(1, 6))
+                            continue
+                        
+                        # Site header
+                        if line.startswith("**Site:"):
+                            site_text = line.replace("**", "").replace("Site:", "Site:")
+                            elements.append(Paragraph(site_text, ParagraphStyle(
+                                "SiteHeader", parent=styles["Normal"], 
+                                fontSize=14, textColor=HexColor("#1f77b4"),
+                                spaceAfter=6, fontName="Helvetica-Bold"
+                            )))
+                        # Link header
+                        elif line.startswith("**") and "→" in line:
+                            link_text = line.replace("**", "")
+                            elements.append(Paragraph(f"   {link_text}", ParagraphStyle(
+                                "LinkHeader", parent=styles["Normal"], 
+                                fontSize=12, textColor=HexColor("#2c3e50"),
+                                spaceAfter=4, fontName="Helvetica-Bold",
+                                leftIndent=20
+                            )))
+                        # Code block lines (APOPLUS data)
+                        elif line.startswith("```"):
+                            continue  # Skip markdown code fences
+                        elif "[APOPLUS]" in line:
+                            # แสดงเป็น monospace text
+                            elements.append(Paragraph(f"      {line}", ParagraphStyle(
+                                "CodeLine", parent=styles["Normal"],
+                                fontSize=9, fontName="Courier",
+                                leftIndent=40, spaceAfter=2
+                            )))
+                    
+                    elements.append(Spacer(1, 12))
+            continue  # Skip normal processing for APO
 
         for subtype, df in abn_dict.items():
             if not isinstance(df, pd.DataFrame) or df.empty:
@@ -355,7 +412,12 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
                     "Link Name", "Loss between core"
                 ]
                 df_show = df_show[[c for c in cols_to_show if c in df_show.columns]]
-
+            
+            elif section_name == "Preset":
+                cols_to_show = [
+                    "Call", "IP", "Preroute", "Verdict", "Status"
+                ]
+                df_show = df_show[[c for c in cols_to_show if c in df_show.columns]]
 
             # ===== Build table_data =====
             if df_show.empty:
@@ -487,7 +549,20 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
                 if col_idx < len(df_show.columns):
                     style_cmds.append(("BACKGROUND", (col_idx, 1), (col_idx, -1), light_red))
                     style_cmds.append(("TEXTCOLOR", (col_idx, 1), (col_idx, -1), text_black))
-
+            
+            elif section_name == "Preset":
+                # Highlight rows where Status contains "Abnormal"
+                if "Status" in df_show.columns:
+                    col_idx = list(df_show.columns).index("Status")
+                    for ridx, row in enumerate(df_show.itertuples(index=False), start=1):
+                        try:
+                            status_val = str(getattr(row, "Status", ""))
+                            if "Abnormal" in status_val:
+                                # Highlight entire row
+                                style_cmds.append(("BACKGROUND", (0, ridx), (-1, ridx), light_red))
+                                style_cmds.append(("TEXTCOLOR", (0, ridx), (-1, ridx), text_black))
+                        except:
+                            pass
 
             # ===== Apply style & append =====
             table.setStyle(TableStyle(style_cmds))
