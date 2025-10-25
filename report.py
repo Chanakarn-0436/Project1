@@ -91,7 +91,7 @@ def _build_summary_rows(all_abnormal: dict) -> list[tuple[str, str, str, str]]:
     return rows
 
 
-def generate_report(all_abnormal: dict, include_charts: bool = True):
+def generate_report(all_abnormal: dict):
     """
     สร้าง PDF Report รวม FAN + CPU + MSU + Line + Client + Fiber + EOL + Core
     """
@@ -104,27 +104,27 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
 
     styles = getSampleStyleSheet()
 
-    # ===== Custom Styles (ตัวหนังสือใหญ่ขึ้น) =====
+    # ===== Custom Styles (ปรับขนาดตัวหนังสือ) =====
     title_center = ParagraphStyle(
         "TitleCenter", parent=styles["Heading1"], alignment=1, spaceAfter=20,
-        fontSize=28, textColor=HexColor("#1f77b4")  # เพิ่มจาก 24 → 28
+        fontSize=24, textColor=HexColor("#1f77b4")  # ลดจาก 28 → 24
     )
     date_center = ParagraphStyle(
         "DateCenter", parent=styles["Normal"], alignment=1, spaceAfter=12,
-        fontSize=14, textColor=HexColor("#666666")  # เพิ่มจาก 12 → 14
+        fontSize=12, textColor=HexColor("#666666")  # ลดจาก 14 → 12
     )
     section_title_left = ParagraphStyle(
         "SectionTitleLeft", parent=styles["Heading2"], alignment=0, spaceAfter=6,
-        fontSize=20, textColor=HexColor("#2c3e50")  # เพิ่มจาก 16 → 20
+        fontSize=16, textColor=HexColor("#2c3e50")  # ลดจาก 20 → 16
     )
     normal_left = ParagraphStyle(
         "NormalLeft", parent=styles["Normal"], alignment=0, spaceAfter=12,
-        fontSize=12  # เพิ่มจาก 10 → 12
+        fontSize=10  # ลดจาก 12 → 10
     )
-    summary_style = ParagraphStyle(
-        "SummaryStyle", parent=styles["Normal"], alignment=1, spaceAfter=20,
-        fontSize=16, textColor=HexColor("#27ae60")  # เพิ่มจาก 14 → 16
-    )
+    # summary_style = ParagraphStyle(
+    #     "SummaryStyle", parent=styles["Normal"], alignment=1, spaceAfter=20,
+    #     fontSize=14, textColor=HexColor("#27ae60")  # ลดจาก 16 → 14
+    # )
 
     elements = []
 
@@ -136,7 +136,7 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
     # ===== Summary Table (replace Executive Summary) =====
     elements.append(Paragraph("Summary Table", section_title_left))
 
-    base_para = ParagraphStyle("Cell", parent=styles["Normal"], fontSize=11, leading=14)  # เพิ่มจาก 9 → 11
+    base_para = ParagraphStyle("Cell", parent=styles["Normal"], fontSize=9, leading=12)  # ลดจาก 11 → 9
     base_para.alignment = 0  # left
 
     summary_rows = _build_summary_rows(all_abnormal)
@@ -161,7 +161,7 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
         ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, 0), 12),  # เพิ่มจาก 9 → 12
+        ("FONTSIZE", (0, 0), (-1, 0), 10),  # ลดจาก 12 → 10
         ("ALIGN", (0, 0), (-1, -1), "LEFT"),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("GRID", (0, 0), (-1, -1), 0.25, colors.black),
@@ -178,7 +178,7 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
     # ===== Sections (CPU มาก่อน FAN) =====
     section_order = ["CPU", "FAN", "MSU", "Line", "Client", "Fiber", "EOL", "Core", "Preset", "APO"]
     light_red = HexColor("#FF9999")
-    light_yellow = HexColor("#FFF3CD")
+    # light_yellow = HexColor("#FFF3CD")
     text_black = colors.black
 
     for section_name in section_order:
@@ -266,11 +266,13 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
                     ]
                     for col in numeric_cols:
                         if col in df_show.columns:
-                            df_show[col] = pd.to_numeric(df_show[col], errors="coerce").round(2)
+                            df_show[col] = pd.to_numeric(df_show[col], errors="coerce")
+                            # Format เป็นทศนิยม 2 ตำแหน่ง
+                            df_show[col] = df_show[col].apply(lambda x: f"{x:.2f}" if pd.notna(x) else "")
                     
                     # Build table
                     if not df_show.empty:
-                        table_data = _df_to_wrapped_table(df_show, ParagraphStyle("Tbl", parent=styles["Normal"], fontSize=10, leading=13))  # เพิ่มจาก 8 → 10
+                        table_data = _df_to_wrapped_table(df_show, ParagraphStyle("Tbl", parent=styles["Normal"], fontSize=8, leading=11))  # ลดจาก 10 → 8
                         table = Table(table_data, repeatRows=1)
                         
                         style_cmds = [
@@ -279,7 +281,7 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
                             ("ALIGN", (0, 0), (-1, -1), "LEFT"),
                             ("VALIGN", (0, 0), (-1, -1), "TOP"),
                             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                            ("FONTSIZE", (0, 0), (-1, -1), 10),  # เพิ่มจาก 8 → 10
+                            ("FONTSIZE", (0, 0), (-1, -1), 8),  # ลดจาก 10 → 8
                             ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
                             ("GRID", (0, 0), (-1, -1), 0.25, colors.black),
                             ("WORDWRAP", (0, 0), (-1, -1), True),
@@ -311,31 +313,31 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
                             elements.append(Spacer(1, 6))
                             continue
                         
-                        # Site header
+                        # Site header - เพิ่มขนาดตัวหนังสือสำหรับ APO
                         if line.startswith("**Site:"):
                             site_text = line.replace("**", "").replace("Site:", "Site:")
                             elements.append(Paragraph(site_text, ParagraphStyle(
                                 "SiteHeader", parent=styles["Normal"], 
-                                fontSize=14, textColor=HexColor("#1f77b4"),
+                                fontSize=16, textColor=HexColor("#1f77b4"),  # เพิ่มจาก 14 → 16
                                 spaceAfter=6, fontName="Helvetica-Bold"
                             )))
-                        # Link header
+                        # Link header - เพิ่มขนาดตัวหนังสือสำหรับ APO
                         elif line.startswith("**") and "→" in line:
                             link_text = line.replace("**", "")
                             elements.append(Paragraph(f"   {link_text}", ParagraphStyle(
                                 "LinkHeader", parent=styles["Normal"], 
-                                fontSize=12, textColor=HexColor("#2c3e50"),
+                                fontSize=14, textColor=HexColor("#2c3e50"),  # เพิ่มจาก 12 → 14
                                 spaceAfter=4, fontName="Helvetica-Bold",
                                 leftIndent=20
                             )))
-                        # Code block lines (APOPLUS data)
+                        # Code block lines (APOPLUS data) - เพิ่มขนาดตัวหนังสือสำหรับ APO
                         elif line.startswith("```"):
                             continue  # Skip markdown code fences
                         elif "[APOPLUS]" in line:
                             # แสดงเป็น monospace text
                             elements.append(Paragraph(f"      {line}", ParagraphStyle(
                                 "CodeLine", parent=styles["Normal"],
-                                fontSize=9, fontName="Courier",
+                                fontSize=11, fontName="Courier",  # เพิ่มจาก 9 → 11
                                 leftIndent=40, spaceAfter=2
                             )))
                     
@@ -425,8 +427,23 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
                 elements.append(Spacer(1, 12))
                 continue
 
+            # Format numeric columns to 2 decimal places
+            numeric_columns = [
+                "CPU utilization ratio", "Value of Fan Rotate Speed(Rps)", "Laser Bias Current(mA)",
+                "Output Optical Power (dBm)", "Input Optical Power(dBm)", "Instant BER After FEC",
+                "Threshold", "Maximum threshold", "Minimum threshold", "Maximum threshold(out)", 
+                "Minimum threshold(out)", "Maximum threshold(in)", "Minimum threshold(in)",
+                "Loss current - Loss EOL", "Loss between core", "EOL(dB)", "Current Attenuation(dB)"
+            ]
+            
+            for col in numeric_columns:
+                if col in df_show.columns:
+                    df_show[col] = pd.to_numeric(df_show[col], errors="coerce")
+                    # Format เป็นทศนิยม 2 ตำแหน่ง
+                    df_show[col] = df_show[col].apply(lambda x: f"{x:.2f}" if pd.notna(x) else "")
+
             # Convert to wrapped Paragraph cells so long text breaks into new lines
-            table_data = _df_to_wrapped_table(df_show, ParagraphStyle("Tbl", parent=styles["Normal"], fontSize=10, leading=13))  # เพิ่มจาก 8 → 10
+            table_data = _df_to_wrapped_table(df_show, ParagraphStyle("Tbl", parent=styles["Normal"], fontSize=8, leading=11))  # ลดจาก 10 → 8
             table = Table(table_data, repeatRows=1)
 
             style_cmds = [
@@ -435,7 +452,7 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
                 ("ALIGN", (0, 0), (-1, -1), "LEFT"),
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("FONTSIZE", (0, 0), (-1, -1), 10),  # เพิ่มจาก 8 → 10
+                ("FONTSIZE", (0, 0), (-1, -1), 8),  # ลดจาก 10 → 8
                 ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
                 ("GRID", (0, 0), (-1, -1), 0.25, colors.black),
                 ("WORDWRAP", (0, 0), (-1, -1), True),
@@ -478,7 +495,7 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
                             if cidx is not None and 0 <= cidx < ncols and 0 <= ridx+1 < nrows:
                                 style_cmds.append(("BACKGROUND", (cidx, ridx+1), (cidx, ridx+1), light_red))
                                 style_cmds.append(("TEXTCOLOR", (cidx, ridx+1), (cidx, ridx+1), text_black))
-                    except:
+                    except (ValueError, TypeError):
                         pass
 
                     # Input check
@@ -491,7 +508,7 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
                             if cidx is not None and 0 <= cidx < ncols and 0 <= ridx+1 < nrows:
                                 style_cmds.append(("BACKGROUND", (cidx, ridx+1), (cidx, ridx+1), light_red))
                                 style_cmds.append(("TEXTCOLOR", (cidx, ridx+1), (cidx, ridx+1), text_black))
-                    except:
+                    except (ValueError, TypeError):
                         pass
 
             elif section_name == "Line":
@@ -509,7 +526,7 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
                             if cidx is not None and 0 <= cidx < ncols and 0 <= ridx+1 < nrows:
                                 style_cmds.append(("BACKGROUND", (cidx, ridx+1), (cidx, ridx+1), light_red))
                                 style_cmds.append(("TEXTCOLOR", (cidx, ridx+1), (cidx, ridx+1), text_black))
-                    except:
+                    except (ValueError, TypeError):
                         pass
 
                     # Input check
@@ -522,7 +539,7 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
                             if cidx is not None and 0 <= cidx < ncols and 0 <= ridx+1 < nrows:
                                 style_cmds.append(("BACKGROUND", (cidx, ridx+1), (cidx, ridx+1), light_red))
                                 style_cmds.append(("TEXTCOLOR", (cidx, ridx+1), (cidx, ridx+1), text_black))
-                    except:
+                    except (ValueError, TypeError):
                         pass
 
                     # Output check
@@ -535,7 +552,7 @@ def generate_report(all_abnormal: dict, include_charts: bool = True):
                             if cidx is not None and 0 <= cidx < ncols and 0 <= ridx+1 < nrows:
                                 style_cmds.append(("BACKGROUND", (cidx, ridx+1), (cidx, ridx+1), light_red))
                                 style_cmds.append(("TEXTCOLOR", (cidx, ridx+1), (cidx, ridx+1), text_black))
-                    except:
+                    except (ValueError, TypeError):
                         pass
 
             elif section_name == "EOL" and "Loss current - Loss EOL" in cols_to_show:
