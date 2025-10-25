@@ -402,7 +402,7 @@ class SummaryTableReport:
         cpu_status, cpu_details, cpu_abn, cpu_abn_by_type = self._get_summary(
             "cpu", CPU_Analyzer, CPU_DETAILS, "CPU utilization ratio"
         )
-        self._render_row("Performance", "CPU board", cpu_details, cpu_status, cpu_abn, "CPU utilization ratio")
+        self._render_row("Performance", "Control board", cpu_details, cpu_status, cpu_abn, "CPU utilization ratio")
 
         # ==============================
         # FAN Section
@@ -450,7 +450,7 @@ class SummaryTableReport:
         fiber_status, fiber_details, fiber_abn, fiber_abn_by_type = self._get_summary(
             "fiberflapping", FiberflappingAnalyzer, FLAP_DETAILS, "Max - Min (dB)"
         )
-        self._render_row("Fiber", "Flapping", fiber_details, fiber_status, fiber_abn, "Max - Min (dB)")
+        self._render_row("Performance", "Fiber Flapping", fiber_details, fiber_status, fiber_abn, "Max - Min (dB)")
 
         # ==============================
         # EOL Section
@@ -459,7 +459,7 @@ class SummaryTableReport:
         eol_status, eol_details, eol_abn, eol_abn_by_type = self._get_summary(
             "eol", EOLAnalyzer, EOL_DETAILS, "Loss current - Loss EOL"
         )
-        self._render_row("Loss", "EOL", eol_details, eol_status, eol_abn, "Loss current - Loss EOL")
+        self._render_row("Performance", "Loss between EOL", eol_details, eol_status, eol_abn, "Loss current - Loss EOL")
 
         # ==============================
         # CORE Section
@@ -468,7 +468,7 @@ class SummaryTableReport:
         core_status, core_details, core_abn, core_abn_by_type = self._get_summary(
             "core", CoreAnalyzer, CORE_DETAILS, "Loss between core"
         )
-        self._render_row("Loss", "Core", core_details, core_status, core_abn, "Loss between core")
+        self._render_row("Performance", "Loss between core", core_details, core_status, core_abn, "Loss between core")
 
         # ==============================
         # PRESET Section

@@ -121,10 +121,6 @@ def generate_report(all_abnormal: dict):
         "NormalLeft", parent=styles["Normal"], alignment=0, spaceAfter=12,
         fontSize=10  # ลดจาก 12 → 10
     )
-    # summary_style = ParagraphStyle(
-    #     "SummaryStyle", parent=styles["Normal"], alignment=1, spaceAfter=20,
-    #     fontSize=14, textColor=HexColor("#27ae60")  # ลดจาก 16 → 14
-    # )
 
     elements = []
 
@@ -178,7 +174,6 @@ def generate_report(all_abnormal: dict):
     # ===== Sections (CPU มาก่อน FAN) =====
     section_order = ["CPU", "FAN", "MSU", "Line", "Client", "Fiber", "EOL", "Core", "Preset", "APO"]
     light_red = HexColor("#FF9999")
-    # light_yellow = HexColor("#FFF3CD")
     text_black = colors.black
 
     for section_name in section_order:
@@ -430,7 +425,7 @@ def generate_report(all_abnormal: dict):
             # Format numeric columns with special handling for Threshold and BER
             numeric_columns = [
                 "CPU utilization ratio", "Value of Fan Rotate Speed(Rps)", "Laser Bias Current(mA)",
-                "Output Optical Power (dBm)", "Input Optical Power(dBm)", "Instant BER After FEC",
+                "Output Optical Power (dBm)", "Input Optical Power(dBm)",
                 "Maximum threshold", "Minimum threshold", "Maximum threshold(out)", 
                 "Minimum threshold(out)", "Maximum threshold(in)", "Minimum threshold(in)",
                 "Loss current - Loss EOL", "Loss between core", "EOL(dB)", "Current Attenuation(dB)"
@@ -447,14 +442,14 @@ def generate_report(all_abnormal: dict):
                 df_show["Threshold"] = pd.to_numeric(df_show["Threshold"], errors="coerce")
                 # Format Threshold เป็น scientific notation
                 df_show["Threshold"] = df_show["Threshold"].apply(
-                    lambda x: f"{x:.2E}" if pd.notna(x) else ""
+                    lambda x: f"{x:.2E}" if pd.notna(x) and x != 0 else "0.00E+00" if pd.notna(x) and x == 0 else ""
                 )
             
             if "Instant BER After FEC" in df_show.columns:
                 df_show["Instant BER After FEC"] = pd.to_numeric(df_show["Instant BER After FEC"], errors="coerce")
                 # Format BER เป็น scientific notation
                 df_show["Instant BER After FEC"] = df_show["Instant BER After FEC"].apply(
-                    lambda x: f"{x:.2E}" if pd.notna(x) else ""
+                    lambda x: f"{x:.2E}" if pd.notna(x) and x != 0 else "0.00E+00" if pd.notna(x) and x == 0 else ""
                 )
 
             # Convert to wrapped Paragraph cells so long text breaks into new lines
@@ -594,6 +589,7 @@ def generate_report(all_abnormal: dict):
                 # Highlight Instant BER After FEC column for Line section
                 col_idx = cols_to_show.index("Instant BER After FEC")
                 if col_idx < len(df_show.columns):
+                    # เน้นสีแดงทั้งคอลัมน์ Instant BER After FEC
                     style_cmds.append(("BACKGROUND", (col_idx, 1), (col_idx, -1), light_red))
                     style_cmds.append(("TEXTCOLOR", (col_idx, 1), (col_idx, -1), text_black))
             
@@ -608,7 +604,7 @@ def generate_report(all_abnormal: dict):
                                 # Highlight entire row
                                 style_cmds.append(("BACKGROUND", (0, ridx), (-1, ridx), light_red))
                                 style_cmds.append(("TEXTCOLOR", (0, ridx), (-1, ridx), text_black))
-                        except:
+                        except (ValueError, TypeError):
                             pass
 
             # ===== Apply style & append =====
