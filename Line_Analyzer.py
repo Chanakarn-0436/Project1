@@ -386,7 +386,13 @@ class Line_Analyzer:
         # ---------- VISUALS ----------
         self._render_summary_kpi(df_lines)                 # Summary KPI
         self._render_ber_donut(df_lines)                   # BER Donut
-        self._render_line_charts(df_lines)                 # Line Chart
+        
+        # ✅ แสดง Problem Call IDs ที่นี่ (ใช้ df_filtered ไม่ใช่ df_lines)
+        self._render_abnormal_line_data(df_filtered)
+        
+        # ✅ แสดง Line Board Performance หลังจากแล้ว
+        self._render_line_charts(df_lines)
+        
         self._render_preset_kpi_and_drilldown(df_lines)    # Preset KPI + Drill-down
         
         # ---------- Problem Call IDs (ใช้ข้อมูลจากตารางหลัก) ----------
@@ -642,8 +648,9 @@ class Line_Analyzer:
         """Plot Line Chart สำหรับ Board LB2R และ L4S (ใช้แถวจริงจากตารางหลัก)"""
         st.markdown("### Line Board Performance (LB2R & L4S)")
         
-        # แสดงข้อมูล abnormal ที่มีปัญหา (สีแดง) จากตารางหลัก
-        self._render_abnormal_line_data(df_view)
+        # ❌ ลบออก: st.markdown(f"**Problem Call IDs (BER/Input/Output abnormal)** - Found {abnormal_count} rows")
+        # ❌ ลบออก: self._render_abnormal_line_data(df_view)  
+        # ✅ เรียก method นี้ที่ process() แทน
 
     def _render_abnormal_line_data(self, df_view: pd.DataFrame) -> None:
         """แสดงข้อมูล abnormal ที่มีปัญหา (สีแดง) สำหรับ Line Board Performance"""
@@ -685,7 +692,7 @@ class Line_Analyzer:
             if col in fail_rows.columns:
                 fail_rows[col] = pd.to_numeric(fail_rows[col], errors="coerce")
         
-        st.markdown(f"**⚠️ Abnormal Line Board Data** - Found {len(fail_rows)} rows with issues")
+        st.markdown(f"**Problem Call IDs (BER/Input/Output abnormal)** - Found {len(fail_rows)} rows")
         
         if not fail_rows.empty:
             def highlight_abnormal_row(row):
@@ -749,6 +756,10 @@ class Line_Analyzer:
             st.dataframe(styled, use_container_width=True)
         else:
             st.success("✅ All Line Board data is within normal parameters.")
+
+        st.markdown("<br><br>", unsafe_allow_html=True)  # เพิ่มระยะห่าง
+
+        # ---------- เนื้อหา LB2R & L4S Charts อยู่ด้านล่าง ----------
 
         def _plot_board(df_board_raw: pd.DataFrame, board_name: str):
             if df_board_raw.empty:
