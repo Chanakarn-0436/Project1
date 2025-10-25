@@ -287,7 +287,7 @@ def generate_report(all_abnormal: dict):
                             ("WORDWRAP", (0, 0), (-1, -1), True),
                         ]
                         
-                        # Highlight Max - Min (dB)
+                        # Highlight Max - Min (dB) column
                         if "Max - Min (dB)" in cols_to_show:
                             col_idx = cols_to_show.index("Max - Min (dB)")
                             if col_idx < len(df_show.columns):
@@ -427,11 +427,11 @@ def generate_report(all_abnormal: dict):
                 elements.append(Spacer(1, 12))
                 continue
 
-            # Format numeric columns to 2 decimal places
+            # Format numeric columns with special handling for Threshold and BER
             numeric_columns = [
                 "CPU utilization ratio", "Value of Fan Rotate Speed(Rps)", "Laser Bias Current(mA)",
                 "Output Optical Power (dBm)", "Input Optical Power(dBm)", "Instant BER After FEC",
-                "Threshold", "Maximum threshold", "Minimum threshold", "Maximum threshold(out)", 
+                "Maximum threshold", "Minimum threshold", "Maximum threshold(out)", 
                 "Minimum threshold(out)", "Maximum threshold(in)", "Minimum threshold(in)",
                 "Loss current - Loss EOL", "Loss between core", "EOL(dB)", "Current Attenuation(dB)"
             ]
@@ -441,6 +441,21 @@ def generate_report(all_abnormal: dict):
                     df_show[col] = pd.to_numeric(df_show[col], errors="coerce")
                     # Format เป็นทศนิยม 2 ตำแหน่ง
                     df_show[col] = df_show[col].apply(lambda x: f"{x:.2f}" if pd.notna(x) else "")
+            
+            # Special formatting for Threshold and Instant BER After FEC
+            if "Threshold" in df_show.columns:
+                df_show["Threshold"] = pd.to_numeric(df_show["Threshold"], errors="coerce")
+                # Format Threshold เป็น scientific notation
+                df_show["Threshold"] = df_show["Threshold"].apply(
+                    lambda x: f"{x:.2E}" if pd.notna(x) else ""
+                )
+            
+            if "Instant BER After FEC" in df_show.columns:
+                df_show["Instant BER After FEC"] = pd.to_numeric(df_show["Instant BER After FEC"], errors="coerce")
+                # Format BER เป็น scientific notation
+                df_show["Instant BER After FEC"] = df_show["Instant BER After FEC"].apply(
+                    lambda x: f"{x:.2E}" if pd.notna(x) else ""
+                )
 
             # Convert to wrapped Paragraph cells so long text breaks into new lines
             table_data = _df_to_wrapped_table(df_show, ParagraphStyle("Tbl", parent=styles["Normal"], fontSize=8, leading=11))  # ลดจาก 10 → 8
@@ -563,6 +578,21 @@ def generate_report(all_abnormal: dict):
 
             elif section_name == "Core" and "Loss between core" in cols_to_show:
                 col_idx = cols_to_show.index("Loss between core")
+                if col_idx < len(df_show.columns):
+                    style_cmds.append(("BACKGROUND", (col_idx, 1), (col_idx, -1), light_red))
+                    style_cmds.append(("TEXTCOLOR", (col_idx, 1), (col_idx, -1), text_black))
+            
+            # ===== Highlight specific columns for Fiber and Line sections =====
+            elif section_name == "Fiber" and "Max - Min (dB)" in cols_to_show:
+                # Highlight Max - Min (dB) column for Fiber section
+                col_idx = cols_to_show.index("Max - Min (dB)")
+                if col_idx < len(df_show.columns):
+                    style_cmds.append(("BACKGROUND", (col_idx, 1), (col_idx, -1), light_red))
+                    style_cmds.append(("TEXTCOLOR", (col_idx, 1), (col_idx, -1), text_black))
+            
+            elif section_name == "Line" and "Instant BER After FEC" in cols_to_show:
+                # Highlight Instant BER After FEC column for Line section
+                col_idx = cols_to_show.index("Instant BER After FEC")
                 if col_idx < len(df_show.columns):
                     style_cmds.append(("BACKGROUND", (col_idx, 1), (col_idx, -1), light_red))
                     style_cmds.append(("TEXTCOLOR", (col_idx, 1), (col_idx, -1), text_black))
